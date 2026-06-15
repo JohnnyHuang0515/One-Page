@@ -7,6 +7,8 @@ import { BookOpen, CaretRight, LockSimple, Plus, SignOut, X } from "@phosphor-ic
 import { api, ApiClientError, fmtMoney, turnTo } from "@/lib/client";
 import { useToast } from "@/components/toast";
 import { Breadcrumb } from "@/components/breadcrumb";
+import { Avatar } from "@/components/avatar";
+import { ProfileModal } from "@/components/profile-modal";
 import { useEscapeKey } from "@/lib/use-escape";
 
 type LedgerCard = {
@@ -18,19 +20,20 @@ type LedgerCard = {
 };
 
 export default function LedgersPage() {
-  const [me, setMe] = useState<{ display_name: string; id?: string } | null>(null);
+  const [me, setMe] = useState<{ id: string; display_name: string; email: string } | null>(null);
   const [ledgers, setLedgers] = useState<LedgerCard[] | null>(null);
   const [listErr, setListErr] = useState(false); // 載入失敗（非 401）→ 顯示重試，不卡無限骨架
   const [creating, setCreating] = useState(false);
   const [creatingBusy, setCreatingBusy] = useState(false);
   const [newName, setNewName] = useState("");
+  const [showProfile, setShowProfile] = useState(false);
   const router = useRouter();
   const toast = useToast();
 
   const load = useCallback(async () => {
     try {
       const [meRes, ledgersRes] = await Promise.all([
-        api<{ display_name: string }>("/api/me"),
+        api<{ id: string; display_name: string; email: string }>("/api/me"),
         api<LedgerCard[]>("/api/ledgers"),
       ]);
       setMe(meRes);
@@ -82,8 +85,17 @@ export default function LedgersPage() {
         {/* 頂部列 */}
         <header className="flex h-16 items-center justify-between gap-4">
           <Breadcrumb items={[{ label: "首頁", href: "/" }, { label: "帳本索引" }]} />
-          <div className="flex shrink-0 items-center gap-4 text-sm">
-            <span className="text-text-2">{me?.display_name}</span>
+          <div className="flex shrink-0 items-center gap-3 text-sm">
+            {me && (
+              <button
+                onClick={() => setShowProfile(true)}
+                aria-label="個人資料"
+                className="flex items-center gap-2 rounded-[3px] py-1 text-text-2 transition hover:text-ink"
+              >
+                <Avatar id={me.id} name={me.display_name} size={26} />
+                <span>{me.display_name}</span>
+              </button>
+            )}
             <button onClick={logout} className="flex items-center gap-1 text-text-3 transition hover:text-ink" aria-label="登出">
               <SignOut size={16} />
             </button>
@@ -255,6 +267,13 @@ export default function LedgersPage() {
             </form>
           </div>
         </div>
+      )}
+      {showProfile && me && (
+        <ProfileModal
+          user={{ id: me.id, display_name: me.display_name, email: me.email }}
+          onClose={() => setShowProfile(false)}
+          onUpdated={() => load()}
+        />
       )}
     </div>
   );

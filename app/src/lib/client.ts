@@ -50,6 +50,33 @@ export function fmtMoney(n: number): string {
   return `$${Math.abs(n).toLocaleString("zh-TW")}`;
 }
 
+/** 複製文字：優先用 Clipboard API；純 HTTP（非 localhost）瀏覽器會停用它，
+ *  退回 execCommand；都失敗回 false（呼叫端可提示手動選取）。 */
+export async function copyText(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    /* fall through to legacy path */
+  }
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
 /** 頭像縮寫：中文名取最後一字（小明→明），其他取首字母大寫 */
 export function nameInitial(name: string): string {
   return /[一-鿿]/.test(name) ? name.slice(-1) : name.slice(0, 1).toUpperCase();

@@ -8,7 +8,7 @@ import { startTransition, use, useCallback, useEffect, useRef, useState } from "
 import { useRouter } from "next/navigation";
 import { CaretLeft, CaretRight, LockSimple, Check, Copy, X, ClockCounterClockwise, ArrowsLeftRight } from "@phosphor-icons/react";
 import { motion, AnimatePresence, useReducedMotion, useAnimationControls } from "motion/react";
-import { api, ApiClientError, fmtMoney, currentYm, ymAdd, turnTo } from "@/lib/client";
+import { api, ApiClientError, fmtMoney, currentYm, ymAdd, turnTo, copyText } from "@/lib/client";
 import { useEscapeKey } from "@/lib/use-escape";
 import { useToast } from "@/components/toast";
 import { Avatar } from "@/components/avatar";
@@ -21,6 +21,7 @@ import { Breadcrumb } from "@/components/breadcrumb";
 import { ActivityModal } from "@/components/activity-modal";
 import { WhoOwesModal } from "@/components/who-owes-modal";
 import { CarryOverModal } from "@/components/carry-over-modal";
+import { ProfileModal } from "@/components/profile-modal";
 
 type LedgerDetail = {
   id: string;
@@ -67,7 +68,7 @@ export default function LedgerPage({ params }: { params: Promise<{ id: string }>
   const reduce = useReducedMotion();
   const shake = useAnimationControls();
 
-  const [me, setMe] = useState<{ id: string } | null>(null);
+  const [me, setMe] = useState<{ id: string; display_name: string; email: string } | null>(null);
   const [ledger, setLedger] = useState<LedgerDetail | null>(null);
   const [ym, setYm] = useState(currentYm());
   const [dir, setDir] = useState(1); // 切月方向：1=往後（next），-1=往前（prev）
@@ -81,6 +82,7 @@ export default function LedgerPage({ params }: { params: Promise<{ id: string }>
   const [showActivity, setShowActivity] = useState(false); // #2 動態
   const [showOverview, setShowOverview] = useState(false); // #4 目前誰欠誰
   const [showCarry, setShowCarry] = useState(false); // #1 從上月帶入
+  const [showProfile, setShowProfile] = useState(false); // 個人資料
   const [unread, setUnread] = useState(0); // #2 動態未讀數
   const [justSettled, setJustSettled] = useState(false); // 剛在本頁按下月結 → 播放編排
   const [justPaidId, setJustPaidId] = useState<string | null>(null); // 剛標記已付的結清列
@@ -95,7 +97,7 @@ export default function LedgerPage({ params }: { params: Promise<{ id: string }>
   const loadBase = useCallback(async () => {
     try {
       const [meRes, ledgerRes] = await Promise.all([
-        api<{ id: string }>("/api/me"),
+        api<{ id: string; display_name: string; email: string }>("/api/me"),
         api<LedgerDetail>(`/api/ledgers/${id}`),
       ]);
       setMe(meRes);
@@ -126,6 +128,7 @@ export default function LedgerPage({ params }: { params: Promise<{ id: string }>
 
   // goMonth 預載過的月份；用來讓 loadPeriod effect 跳過重複抓取（避免整頁翻頁後又閃骨架）
   const lastLoadedYm = useRef<string | null>(null);
+  const reloadRef = useRef<() => void>(() => {}); // 給 SSE 用最新的 reloadPeriod（避免換月重連）
 
   const fetchPeriod = useCallback(
     () => api<PeriodView>(`/api/ledgers/${id}/periods/${ym}`),
@@ -163,6 +166,28 @@ export default function LedgerPage({ params }: { params: Promise<{ id: string }>
     setJustSettled(false);
     setJustPaidId(null);
   }, [ym]);
+  // 即時推播（SSE）：其他成員一寫資料就靜默刷新本頁 + 更新未讀。
+  // 用 reloadRef 拿最新的 reloadPeriod，連線只跟著 id（換月不重連）。
+  useEffect(() => {
+    reloadRef.current = reloadPeriod;
+  }, [reloadPeriod]);
+  useEffect(() => {
+    const es = new EventSource(`/api/ledgers/${id}/stream`);
+    es.onmessage = (e) => {
+      let ev: { type?: string } | null = null;
+      try {
+        ev = JSON.parse(e.data);
+      } catch {
+        return;
+      }
+      if (!ev || ev.type === "connected") return;
+      reloadRef.current();
+      api<{ unread_count: number }>(`/api/ledgers/${id}/events`)
+        .then((r) => setUnread(r.unread_count))
+        .catch(() => {});
+    };
+    return () => es.close();
+  }, [id]);
 
   const members: Member[] = ledger?.members ?? [];
   const myMembership = ledger?.members.find((m) => m.user_id === me?.id);
@@ -372,7 +397,15 @@ export default function LedgerPage({ params }: { params: Promise<{ id: string }>
                   管理
                 </button>
               )}
-              {myMembership && <Avatar id={myMembership.user_id} name={myMembership.display_name} size={30} />}
+              {myMembership && (
+                <button
+                  onClick={() => setShowProfile(true)}
+                  aria-label="個人資料"
+                  className="rounded-full transition hover:opacity-80 active:scale-95"
+                >
+                  <Avatar id={myMembership.user_id} name={myMembership.display_name} size={30} />
+                </button>
+              )}
             </div>
           </div>
 
@@ -816,6 +849,13 @@ export default function LedgerPage({ params }: { params: Promise<{ id: string }>
 
       {showActivity && <ActivityModal ledgerId={id} onClose={() => setShowActivity(false)} />}
       {showOverview && <WhoOwesModal ledgerId={id} onClose={() => setShowOverview(false)} />}
+      {showProfile && me && (
+        <ProfileModal
+          user={{ id: me.id, display_name: me.display_name, email: me.email }}
+          onClose={() => setShowProfile(false)}
+          onUpdated={() => loadBase()}
+        />
+      )}
       {showCarry && (
         <CarryOverModal
           ledgerId={id}
@@ -867,9 +907,9 @@ export default function LedgerPage({ params }: { params: Promise<{ id: string }>
               <div className="mt-4 flex items-center gap-2">
                 <input readOnly value={inviteUrl} className="flex-1 truncate rounded-[3px] border border-rule bg-paper px-3 py-2 text-xs" />
                 <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(inviteUrl);
-                    toast("success", "已複製連結");
+                  onClick={async () => {
+                    const ok = await copyText(inviteUrl);
+                    toast(ok ? "success" : "error", ok ? "已複製連結" : "複製失敗，請手動選取連結");
                   }}
                   className="flex items-center gap-1 rounded-[3px] bg-ink px-3 py-2 text-sm text-white transition hover:bg-ink/85 active:scale-[0.98]"
                 >
