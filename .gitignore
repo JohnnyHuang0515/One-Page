@@ -1,0 +1,33 @@
+# 根目錄 .gitignore（app/ 另有自己的 .gitignore：node_modules、.next、.env、/data、*.tsbuildinfo）
+
+# OS / 編輯器雜物
+.DS_Store
+*.swp
+Thumbs.db
+
+# Claude Code 個人設定（本機權限白名單等，不進版控；共用設定請放 settings.json）
+.claude/settings.local.json
+
+# 文件不進版控（留在本機即可）：設計檔（Pencil .pen、DESIGN-SPEC、預覽截圖）與 功能規格 / ADR
+/design/
+/roommate-monthly-split/
+
+# ── 安全網（即使從根目錄誤 git add 也擋住） ──
+# 相依套件 / 建置產物
+**/node_modules/
+**/.next/
+**/out/
+**/build/
+*.tsbuildinfo
+
+# SQLite 資料庫（含真實使用者資料，務必勿推）
+**/data/*.db
+**/data/*.db-wal
+**/data/*.db-shm
+
+# 環境變數 / 密鑰
+.env
+.env.*
+
+# log
+*.log

@@ -1,0 +1,124 @@
+@import "tailwindcss";
+
+/* 室友分帳 — Editorial Ledger 帳簿風 token（見 design/DESIGN-SPEC.md）。POC 鎖淺色主題。
+   v2.3：中性色全套轉暖（米白老紙 / stone 暖灰）。金錢紅綠與成員身分色不變。 */
+@theme {
+  --color-paper: #faf7f0;
+  --color-surface: #fffdf7;
+  --color-ink: #231f19;
+  --color-text-strong: #44403a;
+  --color-text-2: #79736a;
+  --color-text-3: #a8a299;
+  --color-rule: #e8e2d6;
+  --color-rule-strong: #d9d2c3;
+  --color-rule-red: #d98a98;
+  --color-pos: #059669;
+  --color-pos-bg: #ecfdf5;
+  --color-neg: #e11d48;
+
+  /* 成員身分色（資料編碼） */
+  --color-mem-ming: #dde3ea;
+  --color-mem-ming-ink: #4a5568;
+  --color-mem-mei: #f0e6d8;
+  --color-mem-mei-ink: #8a6d3b;
+  --color-mem-hong: #dde7dd;
+  --color-mem-hong-ink: #4a6048;
+
+  --font-sans: var(--font-geist-sans), var(--font-noto-tc), system-ui, sans-serif;
+  --font-num: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+/* 旋轉印章用 */
+.stamp {
+  border: 1.5px solid var(--color-neg);
+  color: var(--color-neg);
+  border-radius: 6px;
+}
+
+/* 印章墨感：套用 layout 的 #stamp-ink 濾鏡，讓描邊濃淡不均似橡皮章。
+   reduced-motion 下仍保留（這是靜態材質，不是動作）。 */
+.stamp-ink {
+  filter: url(#stamp-ink);
+}
+
+/* 紙張顆粒：極淡 fractalNoise，固定鋪滿、不吃事件。only-screen 材質層。 */
+.paper-grain {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0.04;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ── 換頁：方向性翻頁滑動（nav-forward 進帳本 / nav-back 返回）──
+   只在使用者未要求減少動態時播放方向位移。 */
+/* 整頁翻：頁面繞裝訂邊（前進=左、返回=右）做 3D 翻動，像翻帳簿的葉子。
+   旋鈕：--vt-dur 翻頁時長（想更慢就加大）、--vt-angle 翻起角度（>90° 葉子會翻過去露出底頁）。 */
+/* 方向用瀏覽器的 view-transition type 分流（spec 正規 :active-view-transition-type）。
+   React 的 transitionTypes 不會設定瀏覽器 vt.types，故由 page-transition.tsx 攔截
+   document.startViewTransition、依 <html data-nav> 注入 types（nav-forward / nav-back）。
+   翻頁必須在第二次轉場（資料載入 settle，約導航後 690ms）之前跑完，否則被打斷成「閃一下」，
+   故 --vt-dur 560ms 留約 130ms 餘裕。--vt-angle 翻起角度（>90° 葉子翻過去露底頁）。 */
+:root {
+  --vt-dur: 560ms;
+  --vt-angle: 170deg;
+}
+@media (prefers-reduced-motion: no-preference) {
+  :root:active-view-transition-type(nav-forward)::view-transition-old(*) {
+    transform-origin: left center;
+    backface-visibility: hidden;
+    z-index: 2;
+    animation: leaf-turn-left var(--vt-dur) cubic-bezier(0.42, 0, 0.2, 1) both;
+  }
+  :root:active-view-transition-type(nav-forward)::view-transition-new(*) {
+    transform-origin: left center;
+    backface-visibility: hidden;
+    z-index: 1;
+    animation: leaf-reveal var(--vt-dur) ease-out both;
+  }
+  :root:active-view-transition-type(nav-back)::view-transition-old(*) {
+    transform-origin: right center;
+    backface-visibility: hidden;
+    z-index: 2;
+    animation: leaf-turn-right var(--vt-dur) cubic-bezier(0.42, 0, 0.2, 1) both;
+  }
+  :root:active-view-transition-type(nav-back)::view-transition-new(*) {
+    transform-origin: right center;
+    backface-visibility: hidden;
+    z-index: 1;
+    animation: leaf-reveal var(--vt-dur) ease-out both;
+  }
+}
+
+/* 葉子翻起：透視 + 繞邊轉動，過程漸暗（背光的書頁陰影） */
+@keyframes leaf-turn-left {
+  from { transform: perspective(2200px) rotateY(0deg); filter: brightness(1); }
+  to   { transform: perspective(2200px) rotateY(calc(-1 * var(--vt-angle))); filter: brightness(0.78); }
+}
+@keyframes leaf-turn-right {
+  from { transform: perspective(2200px) rotateY(0deg); filter: brightness(1); }
+  to   { transform: perspective(2200px) rotateY(var(--vt-angle)); filter: brightness(0.78); }
+}
+/* 底下露出的新頁：輕微定位 + 提亮，配合葉子掀開 */
+@keyframes leaf-reveal {
+  from { opacity: 0.6; transform: scale(0.984); filter: brightness(0.9); }
+  to   { opacity: 1; transform: scale(1); filter: brightness(1); }
+}
+
+/* 減少動態：所有換頁動畫歸零（瞬間切換，瀏覽器預設行為） */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+}
