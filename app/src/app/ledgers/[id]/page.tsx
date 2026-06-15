@@ -6,7 +6,7 @@
 // 全部過 useReducedMotion；動畫元件隔離在 components/anim/*。
 import { startTransition, use, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CaretLeft, CaretRight, LockSimple, Check, Copy, ClockCounterClockwise, ArrowsLeftRight } from "@phosphor-icons/react";
+import { CaretLeft, CaretRight, LockSimple, Check, Copy, ClockCounterClockwise, ArrowsLeftRight, SignOut } from "@phosphor-icons/react";
 import { motion, AnimatePresence, useReducedMotion, useAnimationControls } from "motion/react";
 import { api, ApiClientError, fmtMoney, currentYm, ymAdd, turnTo, copyText } from "@/lib/client";
 import { useEscapeKey } from "@/lib/use-escape";
@@ -428,6 +428,9 @@ export default function LedgerPage({ params }: { params: Promise<{ id: string }>
                   <Avatar id={myMembership.user_id} name={myMembership.display_name} size={30} />
                 </button>
               )}
+              <button onClick={logout} aria-label="登出" className="text-text-2 transition hover:text-ink">
+                <SignOut size={18} />
+              </button>
             </div>
           </div>
 
@@ -876,7 +879,6 @@ export default function LedgerPage({ params }: { params: Promise<{ id: string }>
           user={{ id: me.id, display_name: me.display_name, email: me.email }}
           onClose={() => setShowProfile(false)}
           onUpdated={() => loadBase()}
-          onLogout={logout}
         />
       )}
       {showCarry && (

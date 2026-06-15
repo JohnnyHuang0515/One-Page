@@ -3,7 +3,7 @@
 // P-2 帳本列表（帳本索引）— Editorial Ledger 帳簿風
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BookOpen, CaretRight, LockSimple, Plus } from "@phosphor-icons/react";
+import { BookOpen, CaretRight, LockSimple, Plus, SignOut } from "@phosphor-icons/react";
 import { api, ApiClientError, fmtMoney, turnTo } from "@/lib/client";
 import { useToast } from "@/components/toast";
 import { Breadcrumb } from "@/components/breadcrumb";
@@ -123,6 +123,9 @@ export default function LedgersPage() {
                 <Avatar id={me.id} name={me.display_name} size={30} />
               </button>
             )}
+            <button onClick={logout} className="flex items-center gap-1 text-text-3 transition hover:text-ink" aria-label="登出">
+              <SignOut size={16} />
+            </button>
           </div>
         </header>
 
@@ -277,7 +280,6 @@ export default function LedgersPage() {
           user={{ id: me.id, display_name: me.display_name, email: me.email }}
           onClose={() => setShowProfile(false)}
           onUpdated={() => load()}
-          onLogout={logout}
         />
       )}
     </div>

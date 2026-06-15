@@ -14,12 +14,10 @@ export function ProfileModal({
   user,
   onClose,
   onUpdated,
-  onLogout,
 }: {
   user: { display_name: string; email: string; id: string };
   onClose: () => void;
   onUpdated?: (u: { display_name: string }) => void;
-  onLogout: () => void;
 }) {
   const toast = useToast();
   useEscapeKey(onClose);
@@ -178,18 +176,6 @@ export function ProfileModal({
           </button>
         </div>
 
-        <div className="h-px bg-rule" />
-
-        {/* ── 登出 ── */}
-        <div className="flex items-center justify-between px-6 pb-[22px] pt-4">
-          <span className="text-sm text-text-2">登出此裝置</span>
-          <button
-            onClick={onLogout}
-            className="rounded-[3px] border border-rule-strong px-3.5 py-1.5 text-[13px] font-medium text-text-2 transition hover:bg-ink/[0.03]"
-          >
-            登出
-          </button>
-        </div>
       </div>
     </div>
   );
