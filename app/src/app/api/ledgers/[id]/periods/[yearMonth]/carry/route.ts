@@ -5,7 +5,7 @@ import { db, schema } from "@/lib/db";
 import { ApiError, handle } from "@/lib/errors";
 import { assertPeriodOpen, getOrCreatePeriod, isValidYearMonth, requireMembership } from "@/lib/guards";
 import { computeShares } from "@/lib/split";
-import { recordEvent } from "@/lib/events";
+import { recordEvent, fmtYm } from "@/lib/events";
 
 // #1 從上月帶入：把選定的來源花費複製進目標 OPEN 月（伺服器端複製，不信任前端 shares）。
 //   平均分攤 → 用「目前現役成員」重新平分（金額可由前端覆寫）；
@@ -73,6 +73,11 @@ export const POST = handle(async (req: NextRequest, ctx: { params: Promise<{ id:
         amount = srcShares.reduce((a, s) => a + s.shareAmount, 0);
         shares = srcShares.map((s) => ({ memberId: s.memberId, shareAmount: s.shareAmount }));
       }
+      // amount 必須 > 0（DB CHECK），否則整批交易會 rollback —— 算出 <= 0 就跳過該筆。
+      if (amount <= 0) {
+        skipped++;
+        continue;
+      }
       const expId = randomUUID();
       tx.insert(schema.expenses)
         .values({
@@ -104,7 +109,7 @@ export const POST = handle(async (req: NextRequest, ctx: { params: Promise<{ id:
       actorUserId: user.id,
       actorName: user.displayName,
       type: "EXPENSE_ADDED",
-      summary: `從上月帶入 ${created} 筆花費`,
+      summary: `帶入 ${created} 筆花費到 ${fmtYm(yearMonth)}`,
     });
   }
   return NextResponse.json({ created, skipped });

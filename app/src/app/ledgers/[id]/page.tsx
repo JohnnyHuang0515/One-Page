@@ -6,7 +6,7 @@
 // 全部過 useReducedMotion；動畫元件隔離在 components/anim/*。
 import { startTransition, use, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CaretLeft, CaretRight, LockSimple, Check, Copy, X, ClockCounterClockwise, ArrowsLeftRight } from "@phosphor-icons/react";
+import { CaretLeft, CaretRight, LockSimple, Check, Copy, ClockCounterClockwise, ArrowsLeftRight } from "@phosphor-icons/react";
 import { motion, AnimatePresence, useReducedMotion, useAnimationControls } from "motion/react";
 import { api, ApiClientError, fmtMoney, currentYm, ymAdd, turnTo, copyText } from "@/lib/client";
 import { useEscapeKey } from "@/lib/use-escape";
@@ -22,6 +22,7 @@ import { ActivityModal } from "@/components/activity-modal";
 import { WhoOwesModal } from "@/components/who-owes-modal";
 import { CarryOverModal } from "@/components/carry-over-modal";
 import { ProfileModal } from "@/components/profile-modal";
+import { Dialog } from "@/components/dialog";
 
 type LedgerDetail = {
   id: string;
@@ -112,7 +113,7 @@ export default function LedgerPage({ params }: { params: Promise<{ id: string }>
         return;
       }
       if (e instanceof ApiClientError && e.status === 403) {
-        toast("error", "你不是這個帳本的成員");
+        toast("error", "你不是這本帳本的成員");
         turnTo("back");
         router.push("/ledgers", { transitionTypes: ["nav-back"] });
         return;
@@ -120,7 +121,7 @@ export default function LedgerPage({ params }: { params: Promise<{ id: string }>
       // 404（已封存/壞 id）、500、斷網：不要卡在無限骨架，給出口
       setLoadErr(
         e instanceof ApiClientError && e.status === 404
-          ? "找不到這個帳本，可能已被刪除或你已退出。"
+          ? "找不到這本帳本，可能已被刪除或你已退出。"
           : "載入失敗，請檢查連線後重試。"
       );
     }
@@ -129,6 +130,8 @@ export default function LedgerPage({ params }: { params: Promise<{ id: string }>
   // goMonth 預載過的月份；用來讓 loadPeriod effect 跳過重複抓取（避免整頁翻頁後又閃骨架）
   const lastLoadedYm = useRef<string | null>(null);
   const reloadRef = useRef<() => void>(() => {}); // 給 SSE 用最新的 reloadPeriod（避免換月重連）
+  const pendingReloadRef = useRef(false); // 有浮層開著時，SSE 來的刷新先記著、等關閉再補
+  const overlayOpenRef = useRef(false);
 
   const fetchPeriod = useCallback(
     () => api<PeriodView>(`/api/ledgers/${id}/periods/${ym}`),
@@ -167,10 +170,21 @@ export default function LedgerPage({ params }: { params: Promise<{ id: string }>
     setJustPaidId(null);
   }, [ym]);
   // 即時推播（SSE）：其他成員一寫資料就靜默刷新本頁 + 更新未讀。
-  // 用 reloadRef 拿最新的 reloadPeriod，連線只跟著 id（換月不重連）。
+  // 用 reloadRef 拿最新 reloadPeriod；若使用者正開著任何 modal/確認框，先「記著待刷新」，
+  // 等浮層關閉再補刷新——避免數字無故跳動、結清列在手下被換、月結確認框背景資料漂移。
   useEffect(() => {
     reloadRef.current = reloadPeriod;
   }, [reloadPeriod]);
+  const anyOverlayOpen = !!(
+    draft || showInvite || confirmSettle || showManage || showActivity || showOverview || showCarry || showProfile
+  );
+  useEffect(() => {
+    overlayOpenRef.current = anyOverlayOpen;
+    if (!anyOverlayOpen && pendingReloadRef.current) {
+      pendingReloadRef.current = false;
+      reloadRef.current();
+    }
+  }, [anyOverlayOpen]);
   useEffect(() => {
     const es = new EventSource(`/api/ledgers/${id}/stream`);
     es.onmessage = (e) => {
@@ -181,10 +195,12 @@ export default function LedgerPage({ params }: { params: Promise<{ id: string }>
         return;
       }
       if (!ev || ev.type === "connected") return;
-      reloadRef.current();
+      // 未讀一律即時更新；花費資料若有浮層開著則延後刷新（關閉後補）。
       api<{ unread_count: number }>(`/api/ledgers/${id}/events`)
         .then((r) => setUnread(r.unread_count))
         .catch(() => {});
+      if (overlayOpenRef.current) pendingReloadRef.current = true;
+      else reloadRef.current();
     };
     return () => es.close();
   }, [id]);
@@ -261,11 +277,17 @@ export default function LedgerPage({ params }: { params: Promise<{ id: string }>
     }
   }
 
+  async function logout() {
+    await api("/api/auth/logout", { method: "POST" });
+    turnTo("back");
+    router.push("/login", { transitionTypes: ["nav-back"] });
+  }
+
   async function settle() {
     setSettling(true);
     try {
       await api(`/api/ledgers/${id}/periods/${ym}/settle`, { method: "POST" });
-      toast("success", `${ym} 已結算`);
+      toast("success", `${ym} 已完成月結`);
       setConfirmSettle(false);
       setJustSettled(true);
       await reloadPeriod();
@@ -380,7 +402,7 @@ export default function LedgerPage({ params }: { params: Promise<{ id: string }>
                 >
                   <ClockCounterClockwise size={20} />
                   {unread > 0 && (
-                    <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-pos px-1 text-[10px] font-bold text-white">
+                    <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-ink px-1 text-[10px] font-bold text-white">
                       {unread > 9 ? "9+" : unread}
                     </span>
                   )}
@@ -594,7 +616,7 @@ export default function LedgerPage({ params }: { params: Promise<{ id: string }>
                                 variants={rowVariants}
                                 onClick={() => isOpen && setDraft({ ...e })}
                                 disabled={!isOpen}
-                                className="relative flex w-full items-center gap-3.5 px-0.5 py-4 text-left transition enabled:hover:bg-ink/[0.02]"
+                                className="relative flex w-full items-center gap-3.5 px-0.5 py-4 text-left transition enabled:hover:bg-ink/[0.02] disabled:cursor-default"
                               >
                                 <motion.span
                                   aria-hidden
@@ -854,6 +876,7 @@ export default function LedgerPage({ params }: { params: Promise<{ id: string }>
           user={{ id: me.id, display_name: me.display_name, email: me.email }}
           onClose={() => setShowProfile(false)}
           onUpdated={() => loadBase()}
+          onLogout={logout}
         />
       )}
       {showCarry && (
@@ -869,56 +892,45 @@ export default function LedgerPage({ params }: { params: Promise<{ id: string }>
       )}
 
       {confirmSettle && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-ink/30 p-4" onClick={() => setConfirmSettle(false)}>
-          <div role="dialog" aria-modal="true" className="w-full max-w-sm rounded-[3px] border border-rule bg-surface p-6" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-bold">確定執行 {ym} 月結？</h2>
-            <p className="mt-2 text-sm leading-relaxed text-text-2">
-              月結後本月帳目將永久鎖定、不可再修改，並產生結清建議。這個動作無法復原。
-            </p>
-            <div className="mt-5 flex gap-3">
-              <button
-                onClick={settle}
-                disabled={settling}
-                className="flex-1 rounded-[3px] bg-ink py-2.5 text-sm font-medium text-white transition hover:bg-ink/85 active:scale-[0.98] disabled:opacity-50"
-              >
-                {settling ? "月結中…" : "確定執行月結"}
-              </button>
-              <button onClick={() => setConfirmSettle(false)} className="px-3 py-2.5 text-sm text-text-2 underline-offset-4 hover:underline">
-                取消
-              </button>
-            </div>
+        <Dialog title={`確定執行 ${ym} 月結？`} onClose={() => setConfirmSettle(false)}>
+          <p className="text-sm leading-relaxed text-text-2">
+            月結後本月帳目將永久鎖定、不可再修改，並產生結清建議。這個動作無法復原。
+          </p>
+          <div className="mt-5 flex gap-3">
+            <button
+              onClick={settle}
+              disabled={settling}
+              className="flex-1 rounded-[3px] bg-ink py-2.5 text-sm font-medium text-white transition hover:bg-ink/85 active:scale-[0.98] disabled:opacity-50"
+            >
+              {settling ? "月結中…" : "確定執行月結"}
+            </button>
+            <button onClick={() => setConfirmSettle(false)} className="px-3 py-2.5 text-sm text-text-2 underline-offset-4 hover:underline">
+              取消
+            </button>
           </div>
-        </div>
+        </Dialog>
       )}
 
       {showInvite && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-ink/30 p-4" onClick={() => setShowInvite(false)}>
-          <div role="dialog" aria-modal="true" className="w-full max-w-sm rounded-[3px] border border-rule bg-surface p-6" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold">邀請室友</h2>
-              <button onClick={() => setShowInvite(false)} aria-label="關閉" className="text-text-3 transition hover:text-ink">
-                <X size={18} />
+        <Dialog title="邀請室友" onClose={() => setShowInvite(false)}>
+          <p className="text-sm text-text-2">把連結傳給室友，對方註冊登入後即可加入這本帳本。</p>
+          {!inviteUrl ? (
+            <div className="mt-4 h-10 animate-pulse rounded-[3px] bg-rule" />
+          ) : (
+            <div className="mt-4 flex items-center gap-2">
+              <input readOnly value={inviteUrl} className="flex-1 truncate rounded-[3px] border border-rule bg-paper px-3 py-2 text-xs" />
+              <button
+                onClick={async () => {
+                  const ok = await copyText(inviteUrl);
+                  toast(ok ? "success" : "error", ok ? "已複製連結" : "複製失敗，請手動選取連結");
+                }}
+                className="flex items-center gap-1 rounded-[3px] bg-ink px-3 py-2 text-sm text-white transition hover:bg-ink/85 active:scale-[0.98]"
+              >
+                <Copy size={14} /> 複製
               </button>
             </div>
-            <p className="mt-2 text-sm text-text-2">把連結傳給室友，對方註冊登入後即可加入這個帳本。</p>
-            {!inviteUrl ? (
-              <div className="mt-4 h-10 animate-pulse rounded-[3px] bg-rule" />
-            ) : (
-              <div className="mt-4 flex items-center gap-2">
-                <input readOnly value={inviteUrl} className="flex-1 truncate rounded-[3px] border border-rule bg-paper px-3 py-2 text-xs" />
-                <button
-                  onClick={async () => {
-                    const ok = await copyText(inviteUrl);
-                    toast(ok ? "success" : "error", ok ? "已複製連結" : "複製失敗，請手動選取連結");
-                  }}
-                  className="flex items-center gap-1 rounded-[3px] bg-ink px-3 py-2 text-sm text-white transition hover:bg-ink/85 active:scale-[0.98]"
-                >
-                  <Copy size={14} /> 複製
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
+          )}
+        </Dialog>
       )}
     </motion.div>
   );

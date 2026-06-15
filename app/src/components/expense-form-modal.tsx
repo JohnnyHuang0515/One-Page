@@ -1,11 +1,12 @@
 "use client";
 
 // C-7 ExpenseFormModal + C-8 SplitEditor（記帳 / 編輯花費）
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { X, Trash, Info, UsersThree, ArrowsClockwise, UserPlus } from "@phosphor-icons/react";
 import { api, ApiClientError, fmtMoney } from "@/lib/client";
 import { useToast } from "./toast";
 import { useEscapeKey } from "@/lib/use-escape";
+import { useDialog } from "@/lib/use-dialog";
 
 export type Member = { member_id: string; display_name: string };
 export type ExpenseDraft = {
@@ -85,6 +86,8 @@ export function ExpenseFormModal({
 
   // a11y：Esc 關閉
   useEscapeKey(onClose, !!draft);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialog(dialogRef);
 
   if (!draft) return null;
 
@@ -153,13 +156,16 @@ export function ExpenseFormModal({
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/30 p-0 sm:items-center sm:p-4" onClick={onClose}>
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
+        aria-labelledby="expense-form-title"
         className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl border border-rule bg-surface p-6 sm:rounded-[3px]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold">{editing ? "編輯花費" : "記一筆"}</h2>
+          <h2 id="expense-form-title" className="text-lg font-bold">{editing ? "編輯花費" : "記一筆"}</h2>
           <button onClick={onClose} aria-label="關閉" className="rounded-[3px] p-1.5 text-text-3 transition hover:bg-ink/[0.04]">
             <X size={18} />
           </button>

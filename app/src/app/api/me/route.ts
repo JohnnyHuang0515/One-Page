@@ -17,6 +17,7 @@ export const PATCH = handle(async (req: NextRequest) => {
   const body = await req.json().catch(() => null);
   const displayName = typeof body?.display_name === "string" ? body.display_name.trim() : "";
   if (!displayName) throw new ApiError("INVALID_REQUEST", "請填顯示名稱");
+  if (displayName.length > 40) throw new ApiError("INVALID_REQUEST", "顯示名稱請在 40 字以內");
 
   db.update(schema.users)
     .set({ displayName })

@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { ApiError, handle } from "@/lib/errors";
 import { requireMembership, requireOwnership, assertLedgerSettled } from "@/lib/guards";
+import { publish } from "@/lib/realtime";
 
 function currentYearMonth() {
   return new Date().toISOString().slice(0, 7);
@@ -53,6 +54,7 @@ export const PATCH = handle(async (req: NextRequest, ctx: { params: Promise<{ id
   const name = typeof body?.name === "string" ? body.name.trim() : "";
   if (!name) throw new ApiError("INVALID_REQUEST", "請填帳本名稱");
   db.update(schema.ledgers).set({ name }).where(eq(schema.ledgers.id, id)).run();
+  publish(id, { type: "LEDGER_RENAMED", at: Date.now() }); // 索引/帳本頁即時更新（D-0010）
   return NextResponse.json({ id, name });
 });
 
@@ -62,5 +64,6 @@ export const DELETE = handle(async (_req: NextRequest, ctx: { params: Promise<{ 
   await requireOwnership(id);
   assertLedgerSettled(id); // 未結清 → 409 NOT_SETTLED
   db.update(schema.ledgers).set({ status: "ARCHIVED", deletedAt: new Date() }).where(eq(schema.ledgers.id, id)).run();
+  publish(id, { type: "LEDGER_DELETED", at: Date.now() }); // 其他成員的索引即時移除（D-0010）
   return NextResponse.json({ ok: true });
 });

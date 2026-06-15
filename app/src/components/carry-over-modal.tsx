@@ -1,11 +1,12 @@
 "use client";
 
 // #1 從上月帶入：把上一個月的（固定）開銷挑進這個月。平均分攤可改金額；指定金額沿用原額。
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X, Calendar } from "@phosphor-icons/react";
 import { api, ApiClientError, fmtMoney, ymAdd } from "@/lib/client";
 import { useToast } from "@/components/toast";
 import { useEscapeKey } from "@/lib/use-escape";
+import { useDialog } from "@/lib/use-dialog";
 
 type SrcExpense = { id: string; description: string; amount: number; split_method: "EQUAL" | "EXACT_AMOUNT" };
 
@@ -32,6 +33,8 @@ export function CarryOverModal({
   const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   useEscapeKey(onClose);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialog(dialogRef);
 
   useEffect(() => {
     let alive = true;
@@ -75,14 +78,17 @@ export function CarryOverModal({
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40 p-0 sm:items-center sm:p-4" onClick={onClose}>
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
+        aria-labelledby="carry-title"
         className="max-h-[88dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl border border-rule bg-surface p-6 sm:rounded-[3px]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between">
           <div className="flex flex-col">
-            <h2 className="text-lg font-bold">從上月帶入</h2>
+            <h2 id="carry-title" className="text-lg font-bold">從上月帶入</h2>
             <p className="mt-0.5 text-[12px] text-text-3">把上個月的固定花費帶進這個月。取消不需要的，金額可改。</p>
           </div>
           <button onClick={onClose} aria-label="關閉" className="rounded-[3px] p-1.5 text-text-3 transition hover:bg-ink/[0.04]">

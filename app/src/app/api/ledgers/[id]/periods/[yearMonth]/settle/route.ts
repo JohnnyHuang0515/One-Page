@@ -5,7 +5,7 @@ import { db, schema } from "@/lib/db";
 import { ApiError, handle } from "@/lib/errors";
 import { getOrCreatePeriod, isValidYearMonth, requireMembership } from "@/lib/guards";
 import { computeNets, minimizeDebts } from "@/lib/settle";
-import { recordEvent } from "@/lib/events";
+import { recordEvent, fmtYm } from "@/lib/events";
 
 // FR-9,10 / SF-7: settle the month — atomic (NFR-6), optimistic-locked (EC-7)
 export const POST = handle(
@@ -50,7 +50,7 @@ export const POST = handle(
       );
       // BR-9 invariant: nets must sum to 0 — violation means a bug, abort the tx
       const total = [...nets.values()].reduce((a, b) => a + b, 0);
-      if (total !== 0) throw new ApiError("INTERNAL_ERROR", "金額對不起來，月結已中止（系統異常，請回報）");
+      if (total !== 0) throw new ApiError("INTERNAL_ERROR", "月結未完成：系統發生未預期的錯誤，請稍後再試");
 
       const transfers = minimizeDebts(nets); // D-0005
       const rows = transfers.map((t) => ({
@@ -73,7 +73,7 @@ export const POST = handle(
       actorUserId: user.id,
       actorName: user.displayName,
       type: "PERIOD_SETTLED",
-      summary: `執行了 ${yearMonth} 月結`,
+      summary: `完成 ${fmtYm(yearMonth)}月結`,
     });
 
     return NextResponse.json({

@@ -1,14 +1,15 @@
 "use client";
 
 // P-2 帳本列表（帳本索引）— Editorial Ledger 帳簿風
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BookOpen, CaretRight, LockSimple, Plus, SignOut, X } from "@phosphor-icons/react";
+import { BookOpen, CaretRight, LockSimple, Plus } from "@phosphor-icons/react";
 import { api, ApiClientError, fmtMoney, turnTo } from "@/lib/client";
 import { useToast } from "@/components/toast";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { Avatar } from "@/components/avatar";
 import { ProfileModal } from "@/components/profile-modal";
+import { Dialog } from "@/components/dialog";
 import { useEscapeKey } from "@/lib/use-escape";
 
 type LedgerCard = {
@@ -53,6 +54,33 @@ export default function LedgersPage() {
     load();
   }, [load]);
 
+  // 即時推播（D-0010）：對列表裡每本帳本各開一條 SSE，任何成員寫資料就靜默重抓列表
+  // （花費→當月花費、月結→狀態、加入→人數、改名/刪除即時反映）。
+  // 連線只跟「帳本 id 集合」走（用排序字串當 key）：資料刷新不重連，集合變動才重連。
+  const reloadRef = useRef(load);
+  useEffect(() => {
+    reloadRef.current = load;
+  }, [load]);
+  const ledgerIds = (ledgers ?? []).map((l) => l.id).sort().join(",");
+  useEffect(() => {
+    if (!ledgerIds) return;
+    const sources = ledgerIds.split(",").map((lid) => {
+      const es = new EventSource(`/api/ledgers/${lid}/stream`);
+      es.onmessage = (e) => {
+        let ev: { type?: string } | null = null;
+        try {
+          ev = JSON.parse(e.data);
+        } catch {
+          return;
+        }
+        if (!ev || ev.type === "connected") return;
+        reloadRef.current();
+      };
+      return es;
+    });
+    return () => sources.forEach((es) => es.close());
+  }, [ledgerIds]);
+
   async function createLedger(e: React.FormEvent) {
     e.preventDefault();
     setCreatingBusy(true);
@@ -90,15 +118,11 @@ export default function LedgersPage() {
               <button
                 onClick={() => setShowProfile(true)}
                 aria-label="個人資料"
-                className="flex items-center gap-2 rounded-[3px] py-1 text-text-2 transition hover:text-ink"
+                className="rounded-full transition hover:opacity-80 active:scale-95"
               >
-                <Avatar id={me.id} name={me.display_name} size={26} />
-                <span>{me.display_name}</span>
+                <Avatar id={me.id} name={me.display_name} size={30} />
               </button>
             )}
-            <button onClick={logout} className="flex items-center gap-1 text-text-3 transition hover:text-ink" aria-label="登出">
-              <SignOut size={16} />
-            </button>
           </div>
         </header>
 
@@ -216,63 +240,44 @@ export default function LedgersPage() {
 
       {/* 建立新帳本 modal（對齊 P-6） */}
       {creating && (
-        <div
-          className="fixed inset-0 z-40 flex items-center justify-center bg-ink/30 p-4"
-          onClick={() => setCreating(false)}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            className="w-full max-w-md rounded-[3px] border border-rule bg-surface p-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold">建立新帳本</h2>
+        <Dialog title="建立新帳本" onClose={() => setCreating(false)} maxWidth="max-w-md">
+          <p className="text-sm leading-relaxed text-text-2">開一本新的共同帳本，邀請室友加入。</p>
+          <form onSubmit={createLedger} className="mt-5 flex flex-col gap-4">
+            <label className="flex flex-col gap-1.5 text-sm">
+              <span className="text-text-2">帳本名稱</span>
+              <input
+                autoFocus
+                required
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="例：大安路3樓"
+                className="rounded-[3px] border border-rule-strong px-3 py-2 outline-none focus:border-ink"
+              />
+            </label>
+            <div className="flex items-center gap-3">
               <button
-                onClick={() => setCreating(false)}
-                className="rounded-[3px] p-1.5 text-text-3 transition hover:bg-ink/[0.04]"
-                aria-label="關閉"
+                disabled={creatingBusy}
+                className="flex-1 rounded-[3px] bg-ink py-2.5 text-sm font-medium text-white transition hover:bg-ink/85 active:scale-[0.98] disabled:opacity-50"
               >
-                <X size={18} />
+                {creatingBusy ? "建立中…" : "建立"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setCreating(false)}
+                className="px-3 py-2.5 text-sm text-text-2 underline-offset-4 hover:underline"
+              >
+                取消
               </button>
             </div>
-            <p className="mt-2 text-sm leading-relaxed text-text-2">開一本新的共同帳本，邀請室友加入。</p>
-            <form onSubmit={createLedger} className="mt-5 flex flex-col gap-4">
-              <label className="flex flex-col gap-1.5 text-sm">
-                <span className="text-text-2">帳本名稱</span>
-                <input
-                  autoFocus
-                  required
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="例：大安路3樓"
-                  className="rounded-[3px] border border-rule-strong px-3 py-2 outline-none focus:border-ink"
-                />
-              </label>
-              <div className="flex items-center gap-3">
-                <button
-                  disabled={creatingBusy}
-                  className="flex-1 rounded-[3px] bg-ink py-2.5 text-sm font-medium text-white transition hover:bg-ink/85 active:scale-[0.98] disabled:opacity-50"
-                >
-                  {creatingBusy ? "建立中…" : "建立"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCreating(false)}
-                  className="px-3 py-2.5 text-sm text-text-2 underline-offset-4 hover:underline"
-                >
-                  取消
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+          </form>
+        </Dialog>
       )}
       {showProfile && me && (
         <ProfileModal
           user={{ id: me.id, display_name: me.display_name, email: me.email }}
           onClose={() => setShowProfile(false)}
           onUpdated={() => load()}
+          onLogout={logout}
         />
       )}
     </div>

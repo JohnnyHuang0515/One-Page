@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { randomBytes } from "crypto";
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { db, schema } from "./db";
 import { ApiError } from "./errors";
 
@@ -27,6 +27,21 @@ export async function destroySession() {
   const token = store.get(COOKIE)?.value;
   if (token) db.delete(schema.sessions).where(eq(schema.sessions.token, token)).run();
   store.delete(COOKIE);
+}
+
+/**
+ * 登出此使用者「其他裝置」的 session（保留目前這台）。
+ * 改密碼時呼叫：把其餘已建立的 session 都作廢，自己這台不受影響。
+ */
+export async function destroyOtherSessions(userId: string): Promise<void> {
+  const currentToken = (await cookies()).get(COOKIE)?.value;
+  db.delete(schema.sessions)
+    .where(
+      currentToken
+        ? and(eq(schema.sessions.userId, userId), ne(schema.sessions.token, currentToken))
+        : eq(schema.sessions.userId, userId)
+    )
+    .run();
 }
 
 export async function getCurrentUser() {

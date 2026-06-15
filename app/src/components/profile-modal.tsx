@@ -2,24 +2,29 @@
 
 // 個人資料 modal（P-13）：改顯示名稱、改密碼。
 // Email 唯讀（無法修改）。改名成功發 toast；改密碼失敗（目前密碼不對／太短）走改密碼區的內聯錯誤條（不發 toast）。
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { X, WarningCircle } from "@phosphor-icons/react";
 import { api, ApiClientError } from "@/lib/client";
 import { Avatar } from "@/components/avatar";
 import { useToast } from "@/components/toast";
 import { useEscapeKey } from "@/lib/use-escape";
+import { useDialog } from "@/lib/use-dialog";
 
 export function ProfileModal({
   user,
   onClose,
   onUpdated,
+  onLogout,
 }: {
   user: { display_name: string; email: string; id: string };
   onClose: () => void;
   onUpdated?: (u: { display_name: string }) => void;
+  onLogout: () => void;
 }) {
   const toast = useToast();
   useEscapeKey(onClose);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialog(dialogRef);
 
   // 顯示名稱
   const [name, setName] = useState(user.display_name);
@@ -74,14 +79,17 @@ export function ProfileModal({
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40 p-0 sm:items-center sm:p-4" onClick={onClose}>
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
+        aria-labelledby="profile-title"
         className="max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-t-2xl border border-rule bg-surface sm:rounded-[3px]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── 標題 ── */}
         <div className="flex items-center justify-between px-6 pb-4 pt-[22px]">
-          <h2 className="text-lg font-bold">個人資料</h2>
+          <h2 id="profile-title" className="text-lg font-bold">個人資料</h2>
           <button onClick={onClose} aria-label="關閉" className="rounded-[3px] p-1.5 text-text-3 transition hover:bg-ink/[0.04]">
             <X size={18} />
           </button>
@@ -167,6 +175,19 @@ export function ProfileModal({
             className="mt-1 rounded-[3px] bg-ink py-3 text-sm font-medium text-white transition hover:bg-ink/85 active:scale-[0.99] disabled:opacity-30"
           >
             {savingPw ? "更新中…" : "更新密碼"}
+          </button>
+        </div>
+
+        <div className="h-px bg-rule" />
+
+        {/* ── 登出 ── */}
+        <div className="flex items-center justify-between px-6 pb-[22px] pt-4">
+          <span className="text-sm text-text-2">登出此裝置</span>
+          <button
+            onClick={onLogout}
+            className="rounded-[3px] border border-rule-strong px-3.5 py-1.5 text-[13px] font-medium text-text-2 transition hover:bg-ink/[0.03]"
+          >
+            登出
           </button>
         </div>
       </div>

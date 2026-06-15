@@ -4,7 +4,7 @@ import { db, schema } from "@/lib/db";
 import { handle } from "@/lib/errors";
 import { assertPeriodOpen, getOrCreatePeriod, requireMembership, yearMonthOf } from "@/lib/guards";
 import { parseExpenseBody } from "@/lib/expense-input";
-import { recordEvent, fmtAmt } from "@/lib/events";
+import { recordEvent, fmtAmt, fmtYm } from "@/lib/events";
 
 // FR-4,5 / SF-4: record expense + compute shares
 export const POST = handle(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
@@ -43,7 +43,7 @@ export const POST = handle(async (req: NextRequest, ctx: { params: Promise<{ id:
     actorUserId: user.id,
     actorName: user.displayName,
     type: "EXPENSE_ADDED",
-    summary: `記了一筆「${payload.description}」 ${fmtAmt(payload.amount)}`,
+    summary: `記了一筆 ${fmtYm(payload.spentAt)}的「${payload.description}」${fmtAmt(payload.amount)}`,
   });
 
   return NextResponse.json(

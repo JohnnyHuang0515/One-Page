@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { ApiError, handle } from "@/lib/errors";
 import { requireMembership } from "@/lib/guards";
-import { recordEvent, fmtAmt } from "@/lib/events";
+import { recordEvent, fmtAmt, fmtYm, memberNames } from "@/lib/events";
 
 // FR-11 / SF-8: mark settlement PAID / undo (idempotent, PENDING<->PAID)
 export const PATCH = handle(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
@@ -32,19 +32,15 @@ export const PATCH = handle(async (req: NextRequest, ctx: { params: Promise<{ id
     .run();
   // #2 動態：僅在 PENDING→PAID 轉換時記一筆（避免重複標記洗版）
   if (status === "PAID" && tx.status !== "PAID") {
-    const names = db
-      .select({ mid: schema.memberships.id, name: schema.users.displayName })
-      .from(schema.memberships)
-      .innerJoin(schema.users, eq(schema.memberships.userId, schema.users.id))
-      .where(inArray(schema.memberships.id, [tx.fromMemberId, tx.toMemberId]))
-      .all();
-    const nameOf = (mid: string) => names.find((n) => n.mid === mid)?.name ?? "?";
+    const names = memberNames(period.ledgerId, [tx.fromMemberId, tx.toMemberId]);
+    const from = names.get(tx.fromMemberId) ?? "?";
+    const to = names.get(tx.toMemberId) ?? "?";
     recordEvent({
       ledgerId: period.ledgerId,
       actorUserId: user.id,
       actorName: user.displayName,
       type: "SETTLEMENT_PAID",
-      summary: `標記「${nameOf(tx.fromMemberId)} → ${nameOf(tx.toMemberId)} ${fmtAmt(tx.amount)}」已付`,
+      summary: `把 ${fmtYm(period.yearMonth)}的結清「${from} → ${to} ${fmtAmt(tx.amount)}」標記為已付`,
     });
   }
 

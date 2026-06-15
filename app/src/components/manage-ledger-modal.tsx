@@ -3,12 +3,13 @@
 // 帳本管理 modal（D-0006）：P-7 成員管理 / P-9 轉移擁有權 / P-8 刪除帳本（軟刪除）。
 // 擁有者才看得到移除/轉移/刪除；任何人都可「退出帳本」。結清前置由後端 409 NOT_SETTLED 把關，
 // 前端用當月淨額做即時提示（變灰 +「需先結清」）。
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { X, CaretLeft, CaretRight } from "@phosphor-icons/react";
 import { api, ApiClientError } from "@/lib/client";
 import { Avatar } from "@/components/avatar";
 import { useToast } from "@/components/toast";
 import { useEscapeKey } from "@/lib/use-escape";
+import { useDialog } from "@/lib/use-dialog";
 
 export type ManageMember = { member_id: string; user_id: string; display_name: string; is_owner: boolean };
 
@@ -60,6 +61,8 @@ export function ManageLedgerModal({
 
   // a11y：Esc 在子面板先退回主面板，主面板則關閉整個 modal。
   useEscapeKey(() => (pane === "main" ? onClose() : setPane("main")));
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialog(dialogRef);
 
   async function removeMember(m: ManageMember) {
     if (busy) return;
@@ -124,8 +127,11 @@ export function ManageLedgerModal({
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40 p-0 sm:items-center sm:p-4" onClick={onClose}>
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
+        aria-labelledby="manage-title"
         className="max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-t-2xl border border-rule bg-surface sm:rounded-[3px]"
         onClick={(e) => e.stopPropagation()}
       >
@@ -133,7 +139,7 @@ export function ManageLedgerModal({
         {pane === "main" && (
           <>
             <div className="flex items-center justify-between px-6 pb-4 pt-[22px]">
-              <h2 className="text-lg font-bold">帳本管理</h2>
+              <h2 id="manage-title" className="text-lg font-bold">帳本管理</h2>
               <button onClick={onClose} aria-label="關閉" className="rounded-[3px] p-1.5 text-text-3 transition hover:bg-ink/[0.04]">
                 <X size={18} />
               </button>
