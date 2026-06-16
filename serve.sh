@@ -73,7 +73,7 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-say "開啟 Cloudflare 快速通道（指向 http://localhost:$PORT）…"
+say "開啟 Cloudflare 快速通道（指向 http://localhost:${PORT}）…"
 cloudflared tunnel --url "http://localhost:$PORT" >"$TUNNEL_LOG" 2>&1 &
 CF_PID=$!
 
@@ -94,8 +94,9 @@ printf '  本機測試： http://localhost:%s\n' "$PORT"
 printf '  按 Ctrl-C 一起關閉 app 與通道\n'
 printf '\033[1;32m──────────────────────────────────────────────\033[0m\n\n'
 
-say "啟動 app（next start，port $PORT）…"
-APP_BASE_URL="$URL" pnpm start -- -p "$PORT" &
+say "啟動 app（next start，port ${PORT}）…"
+# 直接呼叫 next（不用 pnpm start）—— 經 pnpm start 傳 -p 會被多包一層 `--`，next 會忽略而退回 3000。
+APP_BASE_URL="$URL" pnpm exec next start -p "$PORT" &
 APP_PID=$!
 
 wait "$APP_PID"
