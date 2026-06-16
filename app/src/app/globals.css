@@ -12,6 +12,7 @@
   --color-rule: #e8e2d6;
   --color-rule-strong: #d9d2c3;
   --color-rule-red: #d98a98;
+  --color-chip: #f2ede3;
   --color-pos: #059669;
   --color-pos-bg: #ecfdf5;
   --color-neg: #e11d48;
@@ -72,6 +73,54 @@ body {
   --vt-angle: 170deg;
 }
 @media (prefers-reduced-motion: no-preference) {
+  :root[data-nav="forward"]::view-transition-old(root) {
+    transform-origin: left center;
+    backface-visibility: hidden;
+    z-index: 2;
+    animation: leaf-turn-left var(--vt-dur) cubic-bezier(0.42, 0, 0.2, 1) both;
+  }
+  :root[data-nav="forward"]::view-transition-new(root) {
+    transform-origin: left center;
+    backface-visibility: hidden;
+    z-index: 1;
+    animation: leaf-reveal var(--vt-dur) ease-out both;
+  }
+  :root[data-nav="back"]::view-transition-old(root) {
+    transform-origin: right center;
+    backface-visibility: hidden;
+    z-index: 2;
+    animation: leaf-turn-right var(--vt-dur) cubic-bezier(0.42, 0, 0.2, 1) both;
+  }
+  :root[data-nav="back"]::view-transition-new(root) {
+    transform-origin: right center;
+    backface-visibility: hidden;
+    z-index: 1;
+    animation: leaf-reveal var(--vt-dur) ease-out both;
+  }
+  :root[data-nav="forward"]::view-transition-old(*) {
+    transform-origin: left center;
+    backface-visibility: hidden;
+    z-index: 2;
+    animation: leaf-turn-left var(--vt-dur) cubic-bezier(0.42, 0, 0.2, 1) both;
+  }
+  :root[data-nav="forward"]::view-transition-new(*) {
+    transform-origin: left center;
+    backface-visibility: hidden;
+    z-index: 1;
+    animation: leaf-reveal var(--vt-dur) ease-out both;
+  }
+  :root[data-nav="back"]::view-transition-old(*) {
+    transform-origin: right center;
+    backface-visibility: hidden;
+    z-index: 2;
+    animation: leaf-turn-right var(--vt-dur) cubic-bezier(0.42, 0, 0.2, 1) both;
+  }
+  :root[data-nav="back"]::view-transition-new(*) {
+    transform-origin: right center;
+    backface-visibility: hidden;
+    z-index: 1;
+    animation: leaf-reveal var(--vt-dur) ease-out both;
+  }
   :root:active-view-transition-type(nav-forward)::view-transition-old(*) {
     transform-origin: left center;
     backface-visibility: hidden;

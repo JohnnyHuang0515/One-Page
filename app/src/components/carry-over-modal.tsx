@@ -63,11 +63,10 @@ export function CarryOverModal({
     setBusy(true);
     try {
       const items = [...picked].map((id) => ({ expense_id: id, amount: parseInt(amounts[id] ?? "", 10) || undefined }));
-      const res = await api<{ created: number; skipped: number }>(`/api/ledgers/${ledgerId}/periods/${targetYm}/carry`, {
+      await api<{ created: number; skipped: number }>(`/api/ledgers/${ledgerId}/periods/${targetYm}/carry`, {
         method: "POST",
         body: { items },
       });
-      toast("success", `已帶入 ${res.created} 筆${res.skipped ? `（略過 ${res.skipped} 筆）` : ""}`);
       onDone();
     } catch (e) {
       toast("error", e instanceof ApiClientError ? e.message : "帶入失敗");
@@ -76,14 +75,14 @@ export function CarryOverModal({
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40 p-0 sm:items-center sm:p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-ink/40 p-5" onClick={onClose}>
       <div
         ref={dialogRef}
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby="carry-title"
-        className="max-h-[88dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl border border-rule bg-surface p-6 sm:rounded-[3px]"
+        className="max-h-[calc(100dvh-40px)] w-full max-w-lg overflow-y-auto rounded-[3px] border border-rule bg-surface p-5 sm:p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between">

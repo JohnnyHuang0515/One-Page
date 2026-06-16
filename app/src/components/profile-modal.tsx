@@ -3,7 +3,7 @@
 // 個人資料 modal（P-13）：改顯示名稱、改密碼。
 // Email 唯讀（無法修改）。改名成功發 toast；改密碼失敗（目前密碼不對／太短）走改密碼區的內聯錯誤條（不發 toast）。
 import { useRef, useState } from "react";
-import { X, WarningCircle } from "@phosphor-icons/react";
+import { X, WarningCircle, Eye, EyeSlash } from "@phosphor-icons/react";
 import { api, ApiClientError } from "@/lib/client";
 import { Avatar } from "@/components/avatar";
 import { useToast } from "@/components/toast";
@@ -34,6 +34,8 @@ export function ProfileModal({
   const [newPw, setNewPw] = useState("");
   const [savingPw, setSavingPw] = useState(false);
   const [pwErr, setPwErr] = useState<string | null>(null);
+  const [showCurrent, setShowCurrent] = useState(false); // 顯示/隱藏「目前密碼」
+  const [showNew, setShowNew] = useState(false); // 顯示/隱藏「新密碼」
   const pwValid = currentPw.length > 0 && newPw.length >= 8;
 
   // 底線輸入框：與 auth-form 同款（focus 變深、placeholder 用 text-3）
@@ -45,7 +47,6 @@ export function ProfileModal({
     setSavingName(true);
     try {
       await api("/api/me", { method: "PATCH", body: { display_name: name.trim() } });
-      toast("success", "已更新顯示名稱");
       onUpdated?.({ display_name: name.trim() });
     } catch (e) {
       toast("error", e instanceof ApiClientError ? e.message : "更新失敗");
@@ -63,7 +64,6 @@ export function ProfileModal({
         method: "PATCH",
         body: { current_password: currentPw, new_password: newPw },
       });
-      toast("success", "已更新密碼");
       setCurrentPw("");
       setNewPw("");
     } catch (e) {
@@ -75,14 +75,14 @@ export function ProfileModal({
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40 p-0 sm:items-center sm:p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-ink/40 p-5" onClick={onClose}>
       <div
         ref={dialogRef}
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby="profile-title"
-        className="max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-t-2xl border border-rule bg-surface sm:rounded-[3px]"
+        className="max-h-[calc(100dvh-40px)] w-full max-w-md overflow-y-auto rounded-[3px] border border-rule bg-surface"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── 標題 ── */}
@@ -143,28 +143,50 @@ export function ProfileModal({
 
           <label className="flex flex-col gap-1.5">
             <span className="text-xs tracking-wide text-text-3">目前密碼</span>
-            <input
-              type="password"
-              value={currentPw}
-              onChange={(e) => {
-                setCurrentPw(e.target.value);
-                if (pwErr) setPwErr(null);
-              }}
-              className={field}
-            />
+            <div className="relative">
+              <input
+                type={showCurrent ? "text" : "password"}
+                value={currentPw}
+                onChange={(e) => {
+                  setCurrentPw(e.target.value);
+                  if (pwErr) setPwErr(null);
+                }}
+                className={`${field} pr-9`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowCurrent((v) => !v)}
+                aria-label={showCurrent ? "隱藏密碼" : "顯示密碼"}
+                aria-pressed={showCurrent}
+                className="absolute right-0 top-1/2 -translate-y-1/2 p-1 text-text-3 transition hover:text-ink"
+              >
+                {showCurrent ? <EyeSlash size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </label>
           <label className="flex flex-col gap-1.5">
             <span className="text-xs tracking-wide text-text-3">新密碼（至少 8 碼）</span>
-            <input
-              type="password"
-              minLength={8}
-              value={newPw}
-              onChange={(e) => {
-                setNewPw(e.target.value);
-                if (pwErr) setPwErr(null);
-              }}
-              className={field}
-            />
+            <div className="relative">
+              <input
+                type={showNew ? "text" : "password"}
+                minLength={8}
+                value={newPw}
+                onChange={(e) => {
+                  setNewPw(e.target.value);
+                  if (pwErr) setPwErr(null);
+                }}
+                className={`${field} pr-9`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowNew((v) => !v)}
+                aria-label={showNew ? "隱藏密碼" : "顯示密碼"}
+                aria-pressed={showNew}
+                className="absolute right-0 top-1/2 -translate-y-1/2 p-1 text-text-3 transition hover:text-ink"
+              >
+                {showNew ? <EyeSlash size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </label>
 
           <button

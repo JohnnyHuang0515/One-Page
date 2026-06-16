@@ -51,7 +51,13 @@ export default function LedgersPage() {
   useEscapeKey(() => setCreating(false), creating);
 
   useEffect(() => {
-    load();
+    let active = true;
+    queueMicrotask(() => {
+      if (active) void load();
+    });
+    return () => {
+      active = false;
+    };
   }, [load]);
 
   // 即時推播（D-0010）：對列表裡每本帳本各開一條 SSE，任何成員寫資料就靜默重抓列表
@@ -102,7 +108,15 @@ export default function LedgersPage() {
         es?.close();
       };
     });
-    return () => cleanups.forEach((fn) => fn());
+    // 輪詢備援：SSE 穿不過 Cloudflare 通道（會被緩衝），故每 8 秒靜默重抓一次列表
+    // （分頁不可見時跳過）。SSE 能用時這只是便宜的保險。
+    const poll = setInterval(() => {
+      if (typeof document === "undefined" || document.visibilityState === "visible") reloadRef.current();
+    }, 8000);
+    return () => {
+      clearInterval(poll);
+      cleanups.forEach((fn) => fn());
+    };
   }, [ledgerIds]);
 
   async function createLedger(e: React.FormEvent) {
@@ -110,7 +124,6 @@ export default function LedgersPage() {
     setCreatingBusy(true);
     try {
       const ledger = await api<{ id: string }>("/api/ledgers", { method: "POST", body: { name: newName } });
-      toast("success", "帳本建立成功");
       turnTo("forward");
       router.push(`/ledgers/${ledger.id}`, { transitionTypes: ["nav-forward"] });
     } catch (err) {
@@ -133,9 +146,9 @@ export default function LedgersPage() {
 
   return (
     <div className="min-h-[100dvh] bg-paper">
-      <div className="mx-auto max-w-[1200px] px-6 md:px-14">
+      <div className="mx-auto max-w-[1200px] px-5 pb-12 sm:px-6 md:px-14">
         {/* 頂部列 */}
-        <header className="flex h-16 items-center justify-between gap-4">
+        <header className="flex h-[54px] items-center justify-between gap-4 border-b border-rule sm:h-16 sm:border-b-0">
           <Breadcrumb items={[{ label: "首頁", href: "/" }, { label: "帳本索引" }]} />
           <div className="flex shrink-0 items-center gap-3 text-sm">
             {me && (
@@ -154,28 +167,28 @@ export default function LedgersPage() {
         </header>
 
         {/* 標題列 */}
-        <div className="mt-8 flex items-end justify-between">
+        <div className="mt-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-xs tracking-wide text-text-3">我的帳本</p>
-            <h1 className="mt-1 text-3xl font-bold">帳本索引</h1>
+            <h1 className="mt-1 text-[28px] font-bold leading-tight sm:text-3xl">帳本索引</h1>
           </div>
           <button
             onClick={openCreate}
-            className="flex items-center gap-1.5 rounded-[3px] bg-ink px-4 py-2.5 text-sm font-medium text-white transition hover:bg-ink/85 active:scale-[0.98]"
+            className="flex w-full items-center justify-center gap-1.5 rounded-[3px] bg-ink px-4 py-3 text-sm font-medium text-white transition hover:bg-ink/85 active:scale-[0.98] sm:w-auto sm:py-2.5"
           >
             <Plus size={16} weight="bold" /> 建立新帳本
           </button>
         </div>
 
         {/* 表頭 */}
-        <div className="mt-7 flex items-center gap-4 px-1 pb-2.5 text-[11px] tracking-wide text-text-3">
+        <div className="mt-7 hidden items-center gap-4 px-1 pb-2.5 text-[11px] tracking-wide text-text-3 sm:flex">
           <span className="flex-1">帳本</span>
           <span className="hidden w-36 sm:block">成員</span>
           <span className="hidden w-24 sm:block">狀態</span>
           <span className="w-28 text-right">當月花費</span>
           <span className="w-4" />
         </div>
-        <div className="h-px bg-rule-strong" />
+        <div className="mt-8 h-px bg-rule-strong sm:mt-0" />
 
         {ledgers === null ? (
           listErr ? (
@@ -220,15 +233,27 @@ export default function LedgersPage() {
               <button
                 key={l.id}
                 onClick={() => { turnTo("forward"); router.push(`/ledgers/${l.id}`, { transitionTypes: ["nav-forward"] }); }}
-                className="flex items-center gap-4 border-b border-rule px-1 py-4 text-left transition hover:bg-ink/[0.02]"
+                className="flex items-center gap-3 border-b border-rule py-5 text-left transition hover:bg-ink/[0.02] sm:gap-4 sm:px-1 sm:py-4"
               >
-                <span className="flex flex-1 items-center gap-3">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-[3px] border border-rule-strong text-text-2">
+                <span className="flex min-w-0 flex-1 items-center gap-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[3px] border border-rule-strong text-text-2">
                     <BookOpen size={17} />
                   </span>
-                  <span className="flex flex-col">
-                    <span className="font-bold">{l.name}</span>
-                    <span className="text-xs text-text-3 sm:hidden">{l.member_count} 位成員</span>
+                  <span className="flex min-w-0 flex-col gap-1">
+                    <span className="truncate font-bold">{l.name}</span>
+                    <span className="flex items-center gap-2 text-xs text-text-3 sm:hidden">
+                      <span>{l.member_count} 位成員</span>
+                      <span aria-hidden>・</span>
+                      {l.current_period.status === "OPEN" ? (
+                        <span className="flex items-center gap-1 text-pos">
+                          <span className="h-1.5 w-1.5 rounded-full bg-pos" /> 記帳中
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1">
+                          <LockSimple size={11} /> 已結算
+                        </span>
+                      )}
+                    </span>
                   </span>
                 </span>
                 <span className="hidden w-36 text-sm text-text-2 sm:block">{l.member_count} 位成員</span>
@@ -243,15 +268,15 @@ export default function LedgersPage() {
                     </span>
                   )}
                 </span>
-                <span className="w-28 text-right text-lg font-bold tabular-nums">{fmtMoney(l.month_total)}</span>
-                <CaretRight size={16} className="text-text-3" />
+                <span className="w-[104px] shrink-0 text-right text-lg font-bold tabular-nums sm:w-28">{fmtMoney(l.month_total)}</span>
+                <CaretRight size={16} className="shrink-0 text-text-3" />
               </button>
             ))}
 
             {/* 建立新帳本：末列入口，開啟 modal */}
             <button
               onClick={openCreate}
-              className="flex items-center gap-3 px-1 py-4 text-left transition hover:bg-ink/[0.02]"
+              className="flex items-center gap-3 border border-rule bg-surface/35 px-3 py-4 text-left transition hover:bg-ink/[0.02] sm:border-0 sm:bg-transparent sm:px-1"
             >
               <span className="flex h-9 w-9 items-center justify-center rounded-[3px] border border-dashed border-rule-strong text-text-3">
                 <Plus size={17} />

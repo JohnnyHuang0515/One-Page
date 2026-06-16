@@ -71,14 +71,14 @@ export function ActivityModal({ ledgerId, onClose }: { ledgerId: string; onClose
   }, [ledgerId]);
 
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40 p-0 sm:items-center sm:p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-ink/40 p-5" onClick={onClose}>
       <div
         ref={dialogRef}
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby="activity-title"
-        className="max-h-[80dvh] w-full max-w-md overflow-y-auto rounded-t-2xl border border-rule bg-surface sm:rounded-[3px]"
+        className="max-h-[calc(100dvh-40px)] w-full max-w-md overflow-y-auto rounded-[3px] border border-rule bg-surface"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 pb-3 pt-5">

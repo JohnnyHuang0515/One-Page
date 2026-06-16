@@ -14,11 +14,12 @@ export function Breadcrumb({ items }: { items: Crumb[] }) {
     turnTo("back");
     router.push(href, { transitionTypes: ["nav-back"] });
   };
-  // RWD：手機只顯示「圖示 + 當前頁」，圖示變成回上一層的入口（中間層級在 sm 以上才出現）。
+  // RWD：手機只顯示「/ 上一層」；桌機顯示完整麵包屑。
   const parentHref = items.length >= 2 ? items[items.length - 2].href : items[0]?.href;
+  const parentLabel = items.length >= 2 ? items[items.length - 2].label : items[0]?.label;
 
   return (
-    <nav aria-label="麵包屑" className="flex min-w-0 items-center gap-2 text-[13px]">
+    <nav aria-label="麵包屑" className="flex min-w-0 flex-1 items-center gap-2 text-[13px]">
       <button
         type="button"
         onClick={() => parentHref && go(parentHref)}
@@ -28,12 +29,24 @@ export function Breadcrumb({ items }: { items: Crumb[] }) {
       >
         <BookOpen size={15} weight="bold" />
       </button>
+      {parentHref && parentLabel && (
+        <span className="flex min-w-0 items-center gap-2 text-text-3 sm:hidden">
+          <span aria-hidden>/</span>
+          <button
+            type="button"
+            onClick={() => go(parentHref)}
+            className="min-w-0 truncate transition hover:text-ink"
+          >
+            {parentLabel}
+          </button>
+        </span>
+      )}
       {items.map((c, i) => {
         const last = i === items.length - 1;
         return (
-          <span key={i} className={`min-w-0 items-center gap-2 ${last ? "flex" : "hidden sm:flex"}`}>
+          <span key={i} className={`hidden items-center gap-2 sm:flex ${last ? "min-w-0" : "shrink-0"}`}>
             {i > 0 && (
-              <span className={`shrink-0 text-text-3/50 ${last ? "hidden sm:inline" : ""}`} aria-hidden>
+              <span className="shrink-0 text-text-3/50" aria-hidden>
                 /
               </span>
             )}

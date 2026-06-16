@@ -41,14 +41,19 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
   }, [code]);
 
   useEffect(() => {
-    load();
+    let active = true;
+    queueMicrotask(() => {
+      if (active) void load();
+    });
+    return () => {
+      active = false;
+    };
   }, [load]);
 
   async function join() {
     setJoining(true);
     try {
       const res = await api<{ ledger_id: string }>(`/api/invitations/${code}/accept`, { method: "POST" });
-      toast("success", "已加入帳本！");
       turnTo("forward");
       router.push(`/ledgers/${res.ledger_id}`, { transitionTypes: ["nav-forward"] });
     } catch (e) {

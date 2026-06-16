@@ -52,17 +52,24 @@ export function ExpenseFormModal({
   // 開啟時帶入 draft / 預設值
   useEffect(() => {
     if (!draft) return;
-    setDescription(draft.description);
-    setPayerId(draft.payer_id || members[0]?.member_id || "");
-    setAmount(draft.amount ? String(draft.amount) : "");
-    setSpentAt(draft.spent_at || defaultDate);
-    setMethod(draft.split_method);
-    const ids = draft.shares?.length
-      ? draft.shares.map((s) => s.member_id)
-      : members.map((m) => m.member_id); // 預設全員分攤
-    setPicked(new Set(ids));
-    setExact(Object.fromEntries((draft.shares ?? []).map((s) => [s.member_id, String(s.share_amount)])));
-    setConfirmDelete(false);
+    let active = true;
+    queueMicrotask(() => {
+      if (!active) return;
+      setDescription(draft.description);
+      setPayerId(draft.payer_id || members[0]?.member_id || "");
+      setAmount(draft.amount ? String(draft.amount) : "");
+      setSpentAt(draft.spent_at || defaultDate);
+      setMethod(draft.split_method);
+      const ids = draft.shares?.length
+        ? draft.shares.map((s) => s.member_id)
+        : members.map((m) => m.member_id); // 預設全員分攤
+      setPicked(new Set(ids));
+      setExact(Object.fromEntries((draft.shares ?? []).map((s) => [s.member_id, String(s.share_amount)])));
+      setConfirmDelete(false);
+    });
+    return () => {
+      active = false;
+    };
   }, [draft, members, defaultDate]);
 
   const amountNum = parseInt(amount, 10) || 0;
@@ -132,7 +139,6 @@ export function ExpenseFormModal({
         const created = await api<{ id?: string }>(`/api/ledgers/${ledgerId}/expenses`, { method: "POST", body });
         savedId = created?.id ?? savedId;
       }
-      toast("success", editing ? "已更新" : "已記一筆");
       onSaved(savedId);
     } catch (err) {
       toast("error", err instanceof ApiClientError ? err.message : "發生錯誤");
@@ -144,7 +150,6 @@ export function ExpenseFormModal({
     setBusy(true);
     try {
       await api(`/api/expenses/${draft!.id}`, { method: "DELETE" });
-      toast("success", "已刪除");
       onSaved();
     } catch (err) {
       toast("error", err instanceof ApiClientError ? err.message : "發生錯誤");
@@ -154,14 +159,14 @@ export function ExpenseFormModal({
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/30 p-0 sm:items-center sm:p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-ink/30 p-5" onClick={onClose}>
       <div
         ref={dialogRef}
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby="expense-form-title"
-        className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl border border-rule bg-surface p-6 sm:rounded-[3px]"
+        className="max-h-[calc(100dvh-40px)] w-full max-w-lg overflow-y-auto rounded-[3px] border border-rule bg-surface p-5 sm:p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">

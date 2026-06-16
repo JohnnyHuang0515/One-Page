@@ -158,16 +158,35 @@ export default function LedgerPage({ params }: { params: Promise<{ id: string }>
   }, [fetchPeriod]);
 
   useEffect(() => {
-    loadBase();
+    let active = true;
+    queueMicrotask(() => {
+      if (active) void loadBase();
+    });
+    return () => {
+      active = false;
+    };
   }, [loadBase]);
   useEffect(() => {
     if (lastLoadedYm.current === ym) return; // goMonth 已預載並用整頁 VT 切換，不重抓
-    loadPeriod();
+    let active = true;
+    queueMicrotask(() => {
+      if (active) void loadPeriod();
+    });
+    return () => {
+      active = false;
+    };
   }, [ym, loadPeriod]);
   // 切月時重置一次性動畫旗標（章與斜線是既成事實，換月載入時靜態）
   useEffect(() => {
-    setJustSettled(false);
-    setJustPaidId(null);
+    let active = true;
+    queueMicrotask(() => {
+      if (!active) return;
+      setJustSettled(false);
+      setJustPaidId(null);
+    });
+    return () => {
+      active = false;
+    };
   }, [ym]);
   // 即時推播（SSE）：其他成員一寫資料就靜默刷新本頁 + 更新未讀。
   // 用 reloadRef 拿最新 reloadPeriod；若使用者正開著任何 modal/確認框，先「記著待刷新」，
@@ -225,9 +244,15 @@ export default function LedgerPage({ params }: { params: Promise<{ id: string }>
       };
     }
     connect();
+    // 輪詢備援：SSE 穿不過某些反向代理 / Cloudflare 通道（text/event-stream 會被緩衝），
+    // 故每 8 秒靜默補抓一次（分頁不可見時跳過，省資源）。SSE 能用時（LAN/直連）這只是便宜的保險。
+    const poll = setInterval(() => {
+      if (typeof document === "undefined" || document.visibilityState === "visible") refresh();
+    }, 8000);
     return () => {
       closed = true;
       if (retry) clearTimeout(retry);
+      clearInterval(poll);
       es?.close();
     };
   }, [id]);
@@ -314,7 +339,6 @@ export default function LedgerPage({ params }: { params: Promise<{ id: string }>
     setSettling(true);
     try {
       await api(`/api/ledgers/${id}/periods/${ym}/settle`, { method: "POST" });
-      toast("success", `${ym} 已完成月結`);
       setConfirmSettle(false);
       setJustSettled(true);
       await reloadPeriod();
@@ -411,8 +435,8 @@ export default function LedgerPage({ params }: { params: Promise<{ id: string }>
     <motion.div animate={shake} className="flex min-h-[100dvh] flex-col bg-paper">
       <div className="mx-auto flex w-full max-w-[1440px] flex-1 flex-col">
         {/* Masthead */}
-        <div className="flex flex-col gap-3.5 px-6 pb-5 pt-7 md:px-14">
-          <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col gap-3.5 px-5 pb-5 pt-4 sm:px-6 sm:pt-7 md:px-14">
+          <div className="flex items-start justify-between gap-4">
             <Breadcrumb
               items={[
                 { label: "首頁", href: "/" },
@@ -420,7 +444,7 @@ export default function LedgerPage({ params }: { params: Promise<{ id: string }>
                 { label: ledger?.name ?? "…" },
               ]}
             />
-            <div className="flex shrink-0 items-center gap-4 text-sm md:gap-5">
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-x-3 gap-y-2 text-sm md:gap-x-5">
               {ledger && (
                 <button
                   onClick={() => { setShowActivity(true); setUnread(0); }}
@@ -504,16 +528,16 @@ export default function LedgerPage({ params }: { params: Promise<{ id: string }>
         {/* Body */}
         <div className="grid flex-1 grid-cols-1 lg:grid-cols-[1fr_392px]">
           {/* LedgerCol */}
-          <div className="flex flex-col gap-8 px-6 py-9 md:px-14">
+          <div className="flex flex-col gap-8 px-5 py-7 sm:px-6 sm:py-9 md:px-14">
             {/* NetBlock（持續存在，淨額滾動到位） */}
             <div className="flex flex-col gap-2">
               <p className="text-xs tracking-wide text-text-3">我的淨額 ・ {ym}</p>
               {myBalance ? (
-                <div className="flex items-end gap-3.5">
+                <div className="flex flex-wrap items-end gap-x-3.5 gap-y-1">
                   <RollingNumber
                     value={myBalance.net}
                     format={fmtNet}
-                    className={`text-[46px] font-bold leading-none tracking-[-0.02em] tabular-nums ${netClass(myBalance.net)}`}
+                    className={`text-[40px] font-bold leading-none tracking-normal tabular-nums sm:text-[46px] ${netClass(myBalance.net)}`}
                   />
                   <span className="pb-2 text-sm font-medium text-text-2">{netPhrase}</span>
                 </div>
@@ -628,7 +652,7 @@ export default function LedgerPage({ params }: { params: Promise<{ id: string }>
                   ) : (
                     <>
                       {/* col header */}
-                      <div className="flex items-center gap-3.5 px-0.5 pb-2.5 text-[11px] tracking-wide text-text-3">
+                      <div className="flex items-center gap-3 px-0.5 pb-2.5 text-[11px] tracking-wide text-text-3 sm:gap-3.5">
                         <span className="w-[52px]">日期</span>
                         <span className="flex-1">品項</span>
                         <span className="w-[30px] sm:w-[128px]"><span className="hidden sm:inline">付款人</span></span>
@@ -646,7 +670,7 @@ export default function LedgerPage({ params }: { params: Promise<{ id: string }>
                                 variants={rowVariants}
                                 onClick={() => isOpen && setDraft({ ...e })}
                                 disabled={!isOpen}
-                                className="relative flex w-full items-center gap-3.5 px-0.5 py-4 text-left transition enabled:hover:bg-ink/[0.02] disabled:cursor-default"
+                                className="relative flex w-full items-center gap-3 px-0.5 py-4 text-left transition enabled:hover:bg-ink/[0.02] disabled:cursor-default sm:gap-3.5"
                               >
                                 <motion.span
                                   aria-hidden
@@ -672,11 +696,11 @@ export default function LedgerPage({ params }: { params: Promise<{ id: string }>
                                     ) : null;
                                   })()}
                                 </span>
-                                <span className="flex w-[30px] items-center gap-2.5 sm:w-[128px]">
+                                <span className="flex w-[30px] shrink-0 items-center gap-2.5 sm:w-[128px]">
                                   <Avatar id={e.payer_id} name={e.payer_name} size={26} />
                                   <span className="hidden text-[13px] text-text-2 sm:inline">{e.payer_name}</span>
                                 </span>
-                                <span className="w-20 text-right font-semibold tabular-nums sm:w-[118px]">{fmtMoney(e.amount)}</span>
+                                <span className="w-20 shrink-0 text-right font-semibold tabular-nums sm:w-[118px]">{fmtMoney(e.amount)}</span>
                               </motion.button>
                               {i < view.expenses.length - 1 && <div className="h-px bg-rule" />}
                             </div>
@@ -716,7 +740,7 @@ export default function LedgerPage({ params }: { params: Promise<{ id: string }>
 
           {/* vertical hairline + SideCol */}
           <div className="border-t border-rule lg:border-l lg:border-t-0">
-            <div className="flex min-h-full flex-col justify-between gap-10 px-6 py-9 md:px-10">
+            <div className="flex min-h-full flex-col justify-between gap-10 px-5 py-7 sm:px-6 sm:py-9 md:px-10">
               {/* 成員淨額 */}
               <div>
                 <div className="flex items-end justify-between">
@@ -862,7 +886,7 @@ export default function LedgerPage({ params }: { params: Promise<{ id: string }>
         <button
           onClick={openCreate}
           aria-label="記一筆"
-          className="fixed bottom-6 right-5 z-30 flex items-center gap-1.5 rounded-full bg-ink px-5 py-3.5 text-sm font-medium text-white shadow-[0_4px_16px_rgba(35,31,25,0.25)] transition active:scale-95 lg:hidden"
+          className="fixed bottom-5 right-5 z-30 flex items-center gap-1.5 rounded-[3px] bg-ink px-5 py-3 text-sm font-medium text-white shadow-[0_4px_16px_rgba(35,31,25,0.22)] transition active:scale-95 lg:hidden"
         >
           ＋ 記一筆
         </button>

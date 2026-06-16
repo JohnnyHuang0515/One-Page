@@ -50,7 +50,6 @@ export function ManageLedgerModal({
     setBusy(true);
     try {
       await api(`/api/ledgers/${ledgerId}`, { method: "PATCH", body: { name: name.trim() } });
-      toast("success", "已更新帳本名稱");
       onMembersChanged();
     } catch (e) {
       toast("error", e instanceof ApiClientError ? e.message : "更新失敗");
@@ -69,7 +68,6 @@ export function ManageLedgerModal({
     setBusy(true);
     try {
       await api(`/api/ledgers/${ledgerId}/members/${m.member_id}`, { method: "DELETE" });
-      toast("success", `已移除 ${m.display_name}`);
       onMembersChanged();
     } catch (e) {
       toast("error", e instanceof ApiClientError ? e.message : "移除失敗");
@@ -83,7 +81,6 @@ export function ManageLedgerModal({
     setBusy(true);
     try {
       await api(`/api/ledgers/${ledgerId}/leave`, { method: "POST" });
-      toast("success", "已退出帳本");
       onExit();
     } catch (e) {
       toast("error", e instanceof ApiClientError ? e.message : "退出失敗");
@@ -97,8 +94,6 @@ export function ManageLedgerModal({
     setBusy(true);
     try {
       await api(`/api/ledgers/${ledgerId}/transfer-ownership`, { method: "POST", body: { member_id: pick } });
-      const name = members.find((m) => m.member_id === pick)?.display_name ?? "";
-      toast("success", `已把擁有權轉移給 ${name}`);
       setPane("main");
       onMembersChanged();
     } catch (e) {
@@ -114,7 +109,6 @@ export function ManageLedgerModal({
     setDeleteErr(null);
     try {
       await api(`/api/ledgers/${ledgerId}`, { method: "DELETE" });
-      toast("success", "已刪除帳本");
       onExit();
     } catch (e) {
       const msg = e instanceof ApiClientError ? e.message : "刪除失敗";
@@ -125,14 +119,14 @@ export function ManageLedgerModal({
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40 p-0 sm:items-center sm:p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-ink/40 p-5" onClick={onClose}>
       <div
         ref={dialogRef}
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby="manage-title"
-        className="max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-t-2xl border border-rule bg-surface sm:rounded-[3px]"
+        className="max-h-[calc(100dvh-40px)] w-full max-w-md overflow-y-auto rounded-[3px] border border-rule bg-surface"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── 主面板：成員 + 轉移 + 危險區 ── */}

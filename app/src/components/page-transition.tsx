@@ -40,8 +40,15 @@ function useViewTransitionTypeBridge() {
       const dir = document.documentElement.dataset.nav;
       if (dir) {
         const types = [`nav-${dir}`];
-        if (typeof arg === "function") return orig({ update: arg, types });
-        if (arg && typeof arg === "object") return orig({ ...arg, types: [...(arg.types ?? []), ...types] });
+        try {
+          if (typeof arg === "function") return orig({ update: arg, types });
+          if (arg && typeof arg === "object") return orig({ ...arg, types: [...(arg.types ?? []), ...types] });
+        } catch {
+          // 部分手機瀏覽器只支援 startViewTransition(update)，不支援 { update, types }。
+          // CSS 仍會用 html[data-nav] fallback 套方向動畫。
+          if (typeof arg === "function") return orig(arg);
+          if (arg?.update && typeof arg.update === "function") return orig(arg.update);
+        }
       }
       return orig(arg);
     };

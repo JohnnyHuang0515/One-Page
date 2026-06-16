@@ -1,6 +1,6 @@
 "use client";
 
-// 共用對話框外殼：手機底部 sheet、桌機置中卡片；scrim 點擊關閉、Esc 關閉、focus 管理、aria。
+// 共用對話框外殼：手機與桌機皆置中卡片；scrim 點擊關閉、Esc 關閉、focus 管理、aria。
 // 給站內小型確認/表單浮層共用（月結確認、邀請室友、建立帳本…），與各大型 modal 風格一致。
 import { useId, useRef } from "react";
 import { X } from "@phosphor-icons/react";
@@ -23,14 +23,14 @@ export function Dialog({
   useDialog(ref);
   useEscapeKey(onClose);
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40 p-0 sm:items-center sm:p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-ink/40 p-5" onClick={onClose}>
       <div
         ref={ref}
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className={`w-full ${maxWidth} rounded-t-2xl border border-rule bg-surface p-6 sm:rounded-[3px]`}
+        className={`max-h-[calc(100dvh-40px)] w-full ${maxWidth} overflow-y-auto rounded-[3px] border border-rule bg-surface p-6`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">

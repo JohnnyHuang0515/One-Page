@@ -32,14 +32,14 @@ export function WhoOwesModal({ ledgerId, onClose }: { ledgerId: string; onClose:
   }, [ledgerId]);
 
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40 p-0 sm:items-center sm:p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-ink/40 p-5" onClick={onClose}>
       <div
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="who-owes-title"
         tabIndex={-1}
-        className="max-h-[85dvh] w-full max-w-md overflow-y-auto rounded-t-2xl border border-rule bg-surface p-6 sm:rounded-[3px]"
+        className="max-h-[calc(100dvh-40px)] w-full max-w-md overflow-y-auto rounded-[3px] border border-rule bg-surface p-5 sm:p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between">

@@ -31,10 +31,11 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
       let closed = false;
-      // 先以 let 宣告，讓 cleanup 在「首個 enqueue 就失敗」時也能安全參照
-      // （此時兩者尚未賦值，仍是 undefined，故下方 cleanup 內均做 if 判斷）。
-      let unsubscribe: (() => void) | undefined;
-      let heartbeat: ReturnType<typeof setInterval> | undefined;
+      // 讓 cleanup 在「首個 enqueue 就失敗」時也能安全參照。
+      const cleanupRefs: {
+        unsubscribe?: () => void;
+        heartbeat?: ReturnType<typeof setInterval>;
+      } = {};
 
       // 以「函式宣告」定義 cleanup → 會被 hoist 到 start 頂端，
       // 故 send() 的 catch 在第一次 enqueue 同步失敗時即可呼叫，不會落入 TDZ。
@@ -42,8 +43,8 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       function cleanup() {
         if (closed) return;
         closed = true;
-        if (unsubscribe) unsubscribe();
-        if (heartbeat) clearInterval(heartbeat);
+        cleanupRefs.unsubscribe?.();
+        if (cleanupRefs.heartbeat) clearInterval(cleanupRefs.heartbeat);
         try {
           controller.close();
         } catch {
@@ -65,12 +66,12 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       send(`data: ${JSON.stringify({ type: "connected" })}\n\n`);
 
       // 訂閱：每筆 publish 直接轉成一個 SSE message。
-      unsubscribe = subscribe(id, (payload) => {
+      cleanupRefs.unsubscribe = subscribe(id, (payload) => {
         send(`data: ${JSON.stringify(payload)}\n\n`);
       });
 
       // 心跳：SSE 註解行（以「:」開頭），client 會忽略，純粹保活。
-      heartbeat = setInterval(() => send(`: ping\n\n`), HEARTBEAT_MS);
+      cleanupRefs.heartbeat = setInterval(() => send(`: ping\n\n`), HEARTBEAT_MS);
 
       // client 斷線（關分頁 / 離開頁面）→ AbortSignal 觸發 → 解除訂閱、停心跳、關串流。
       if (req.signal.aborted) cleanup();
