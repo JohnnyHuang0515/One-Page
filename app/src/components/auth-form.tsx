@@ -114,7 +114,7 @@ export function AuthForm({
           onClick={() => switchMode(mode === "login" ? "register" : "login")}
           className="ml-1 font-semibold text-ink underline-offset-4 hover:underline"
         >
-          {mode === "login" ? "建立一本新帳本" : "改用登入"}
+          {mode === "login" ? "立即註冊" : "改用登入"}
         </button>
       </p>
     </form>

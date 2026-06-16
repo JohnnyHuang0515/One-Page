@@ -27,6 +27,7 @@ export function parseExpenseBody(body: unknown, ledgerId: string): ExpensePayloa
   const rawParticipants = Array.isArray(b.participants) ? b.participants : null;
 
   if (!description) throw new ApiError("INVALID_REQUEST", "請填品項");
+  if (description.length > 100) throw new ApiError("INVALID_REQUEST", "品項名稱最多 100 字"); // 會寫進動態並經 SSE 推給全帳本，限長
   if (!isValidDate(spentAt)) throw new ApiError("INVALID_REQUEST", "日期格式不對（需為 YYYY-MM-DD）");
   if (!splitMethod) throw new ApiError("INVALID_REQUEST", "請選擇分攤方式（平均分攤或指定金額）");
   if (!rawParticipants || rawParticipants.length === 0) throw new ApiError("INVALID_REQUEST", "至少一位分攤者");

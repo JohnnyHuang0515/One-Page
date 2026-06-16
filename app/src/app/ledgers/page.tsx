@@ -64,21 +64,45 @@ export default function LedgersPage() {
   const ledgerIds = (ledgers ?? []).map((l) => l.id).sort().join(",");
   useEffect(() => {
     if (!ledgerIds) return;
-    const sources = ledgerIds.split(",").map((lid) => {
-      const es = new EventSource(`/api/ledgers/${lid}/stream`);
-      es.onmessage = (e) => {
-        let ev: { type?: string } | null = null;
-        try {
-          ev = JSON.parse(e.data);
-        } catch {
-          return;
-        }
-        if (!ev || ev.type === "connected") return;
-        reloadRef.current();
+    // 每本帳本一條 SSE；伺服器關閉/4xx 時 EventSource 會永久關閉，故自己延遲重建並補抓。
+    const cleanups = ledgerIds.split(",").map((lid) => {
+      let es: EventSource | null = null;
+      let retry: ReturnType<typeof setTimeout> | undefined;
+      let closed = false;
+      let everConnected = false;
+      function connect() {
+        es = new EventSource(`/api/ledgers/${lid}/stream`);
+        es.onmessage = (e) => {
+          let ev: { type?: string } | null = null;
+          try {
+            ev = JSON.parse(e.data);
+          } catch {
+            return;
+          }
+          if (!ev) return;
+          if (ev.type === "connected") {
+            if (everConnected) reloadRef.current(); // 重連後補抓斷線期間漏掉的更新
+            everConnected = true;
+            return;
+          }
+          reloadRef.current();
+        };
+        es.onerror = () => {
+          if (es && es.readyState === EventSource.CLOSED) {
+            es.close();
+            es = null;
+            if (!closed) retry = setTimeout(connect, 3000);
+          }
+        };
+      }
+      connect();
+      return () => {
+        closed = true;
+        if (retry) clearTimeout(retry);
+        es?.close();
       };
-      return es;
     });
-    return () => sources.forEach((es) => es.close());
+    return () => cleanups.forEach((fn) => fn());
   }, [ledgerIds]);
 
   async function createLedger(e: React.FormEvent) {

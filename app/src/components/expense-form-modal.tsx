@@ -210,7 +210,7 @@ export function ExpenseFormModal({
           </div>
 
           <label className="flex flex-col gap-1 text-sm">
-            <span className="text-text-2">誰先付的</span>
+            <span className="text-text-2">付款人</span>
             <select
               value={payerId}
               onChange={(e) => setPayerId(e.target.value)}

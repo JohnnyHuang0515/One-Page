@@ -47,7 +47,7 @@ export function assertMemberSettled(ledgerId: string, membershipId: string) {
   const periods = db.select().from(schema.billingPeriods).where(eq(schema.billingPeriods.ledgerId, ledgerId)).all();
   for (const p of periods) {
     if (p.status === "OPEN" && memberNetInPeriod(p.id, membershipId) !== 0) {
-      throw new ApiError("NOT_SETTLED", "這位成員還有未結清的款項，請先結清（月結並付清）再移除");
+      throw new ApiError("NOT_SETTLED", "這位成員還有未付清的款項，請先完成月結並付清再移除");
     }
   }
   if (periods.length) {
@@ -82,7 +82,7 @@ export function assertLedgerSettled(ledgerId: string) {
         )
       )
       .all();
-    if (pending.length) throw new ApiError("NOT_SETTLED", "還有未付清的結清項，請先結清再刪除帳本");
+    if (pending.length) throw new ApiError("NOT_SETTLED", "還有未付清的結清項，請先標記已付再刪除帳本");
   }
   for (const p of periods) {
     if (p.status !== "OPEN") continue;
@@ -94,7 +94,7 @@ export function assertLedgerSettled(ledgerId: string) {
     for (const e of exps) net.set(e.payerId, (net.get(e.payerId) ?? 0) + e.amount);
     for (const s of shares) net.set(s.memberId, (net.get(s.memberId) ?? 0) - s.shareAmount);
     if ([...net.values()].some((v) => v !== 0)) {
-      throw new ApiError("NOT_SETTLED", `${p.yearMonth} 帳目尚未結清，請先結清（月結並付清）再刪除帳本`);
+      throw new ApiError("NOT_SETTLED", `${p.yearMonth} 還有未付清的款項，請先完成月結並付清再刪除帳本`);
     }
   }
 }

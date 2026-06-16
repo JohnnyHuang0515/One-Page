@@ -186,23 +186,50 @@ export default function LedgerPage({ params }: { params: Promise<{ id: string }>
     }
   }, [anyOverlayOpen]);
   useEffect(() => {
-    const es = new EventSource(`/api/ledgers/${id}/stream`);
-    es.onmessage = (e) => {
-      let ev: { type?: string } | null = null;
-      try {
-        ev = JSON.parse(e.data);
-      } catch {
-        return;
-      }
-      if (!ev || ev.type === "connected") return;
-      // 未讀一律即時更新；花費資料若有浮層開著則延後刷新（關閉後補）。
+    let es: EventSource | null = null;
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    let closed = false;
+    let everConnected = false;
+    // 未讀一律即時更新；花費資料若有浮層開著則延後刷新（關閉後補）。
+    const refresh = () => {
       api<{ unread_count: number }>(`/api/ledgers/${id}/events`)
         .then((r) => setUnread(r.unread_count))
         .catch(() => {});
       if (overlayOpenRef.current) pendingReloadRef.current = true;
       else reloadRef.current();
     };
-    return () => es.close();
+    function connect() {
+      es = new EventSource(`/api/ledgers/${id}/stream`);
+      es.onmessage = (e) => {
+        let ev: { type?: string } | null = null;
+        try {
+          ev = JSON.parse(e.data);
+        } catch {
+          return;
+        }
+        if (!ev) return;
+        if (ev.type === "connected") {
+          if (everConnected) refresh(); // 重連後補抓斷線期間漏掉的更新
+          everConnected = true;
+          return;
+        }
+        refresh();
+      };
+      // CONNECTING：瀏覽器自動重連中，放著即可；CLOSED：伺服器關閉/4xx，自己延遲重建。
+      es.onerror = () => {
+        if (es && es.readyState === EventSource.CLOSED) {
+          es.close();
+          es = null;
+          if (!closed) retry = setTimeout(connect, 3000);
+        }
+      };
+    }
+    connect();
+    return () => {
+      closed = true;
+      if (retry) clearTimeout(retry);
+      es?.close();
+    };
   }, [id]);
 
   const members: Member[] = ledger?.members ?? [];

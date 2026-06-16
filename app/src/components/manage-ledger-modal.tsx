@@ -176,9 +176,9 @@ export function ManageLedgerModal({
                       <span className="flex flex-col">
                         <span className="text-sm">{m.display_name}</span>
                         {m.is_owner ? null : !settled(m) ? (
-                          <span className="text-[11px] text-neg">尚有未結清</span>
+                          <span className="text-[11px] text-neg">尚有欠款</span>
                         ) : (
-                          <span className="text-[11px] text-text-3">已結清</span>
+                          <span className="text-[11px] text-text-3">目前無欠款</span>
                         )}
                       </span>
                     </span>

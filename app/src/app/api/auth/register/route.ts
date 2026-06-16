@@ -15,6 +15,7 @@ export const POST = handle(async (req: NextRequest) => {
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new ApiError("INVALID_REQUEST", "Email 格式不正確");
   if (password.length < 8) throw new ApiError("INVALID_REQUEST", "密碼至少 8 碼");
+  if (password.length > 128) throw new ApiError("INVALID_REQUEST", "密碼最多 128 碼"); // 防超長字串拖垮 bcrypt（與改密碼端點一致）
   if (!displayName) throw new ApiError("INVALID_REQUEST", "請填顯示名稱");
 
   const existing = db.select().from(schema.users).where(eq(schema.users.email, email)).get();
