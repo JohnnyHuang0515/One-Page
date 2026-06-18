@@ -1,5 +1,7 @@
 "use client";
 
+import { localYm } from "./date";
+
 // 換頁翻頁方向：導航前在 <html> 掛 data-nav，CSS（globals.css）依此決定 3D 翻頁方向。
 // React 的 transitionTypes 不會設定瀏覽器 vt.types，CSS :active-view-transition-type() 看不到，
 // 故改用自掛 data 屬性。約 1.3s 後（> 翻頁時長）清除，避免影響後續無方向導航。
@@ -105,5 +107,5 @@ export function ymAdd(ym: string, delta: number): string {
 }
 
 export function currentYm(): string {
-  return new Date().toISOString().slice(0, 7);
+  return localYm();
 }

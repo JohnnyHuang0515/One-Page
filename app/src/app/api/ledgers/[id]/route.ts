@@ -4,10 +4,7 @@ import { db, schema } from "@/lib/db";
 import { ApiError, handle } from "@/lib/errors";
 import { requireMembership, requireOwnership, assertLedgerSettled } from "@/lib/guards";
 import { publish } from "@/lib/realtime";
-
-function currentYearMonth() {
-  return new Date().toISOString().slice(0, 7);
-}
+import { localYm } from "@/lib/date";
 
 // FR-7,8 / SF-6: ledger detail (members + current period summary)
 export const GET = handle(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
@@ -22,7 +19,7 @@ export const GET = handle(async (_req: NextRequest, ctx: { params: Promise<{ id:
     .where(and(eq(schema.memberships.ledgerId, id), eq(schema.memberships.status, "ACTIVE")))
     .all();
 
-  const ym = currentYearMonth();
+  const ym = localYm();
   const period = db
     .select()
     .from(schema.billingPeriods)

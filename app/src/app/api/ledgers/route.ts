@@ -4,10 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { ApiError, handle } from "@/lib/errors";
 import { requireUser } from "@/lib/session";
-
-function currentYearMonth() {
-  return new Date().toISOString().slice(0, 7);
-}
+import { localYm } from "@/lib/date";
 
 // FR-2 / SF-2: create ledger (creator auto-joins)
 export const POST = handle(async (req: NextRequest) => {
@@ -47,7 +44,7 @@ export const GET = handle(async () => {
       .from(schema.memberships)
       .where(and(eq(schema.memberships.ledgerId, ledger.id), eq(schema.memberships.status, "ACTIVE")))
       .all().length;
-    const ym = currentYearMonth();
+    const ym = localYm();
     const period = db
       .select()
       .from(schema.billingPeriods)

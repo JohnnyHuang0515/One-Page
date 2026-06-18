@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { db, schema } from "./db";
 import { ApiError } from "./errors";
 import { isValidDate } from "./guards";
+import { localDate } from "./date";
 import { computeShares } from "./split";
 
 export type ExpensePayload = {
@@ -29,6 +30,7 @@ export function parseExpenseBody(body: unknown, ledgerId: string): ExpensePayloa
   if (!description) throw new ApiError("INVALID_REQUEST", "請填品項");
   if (description.length > 100) throw new ApiError("INVALID_REQUEST", "品項名稱最多 100 字"); // 會寫進動態並經 SSE 推給全帳本，限長
   if (!isValidDate(spentAt)) throw new ApiError("INVALID_REQUEST", "日期格式不對（需為 YYYY-MM-DD）");
+  if (spentAt > localDate()) throw new ApiError("INVALID_REQUEST", "日期不能超過今天"); // 花費是已發生的事，不收未來日期
   if (!splitMethod) throw new ApiError("INVALID_REQUEST", "請選擇分攤方式（平均分攤或指定金額）");
   if (!rawParticipants || rawParticipants.length === 0) throw new ApiError("INVALID_REQUEST", "至少一位分攤者");
   if (!Number.isInteger(amount) || amount <= 0) throw new ApiError("INVALID_AMOUNT", "金額必須為正整數（元）"); // EF-6 / BR-2

@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { CaretLeft, CaretRight, LockSimple, Check, Copy, ClockCounterClockwise, ArrowsLeftRight, SignOut } from "@phosphor-icons/react";
 import { motion, AnimatePresence, useReducedMotion, useAnimationControls } from "motion/react";
 import { api, ApiClientError, fmtMoney, currentYm, ymAdd, turnTo, copyText } from "@/lib/client";
+import { localDate } from "@/lib/date";
 import { useEscapeKey } from "@/lib/use-escape";
 import { useToast } from "@/components/toast";
 import { Avatar } from "@/components/avatar";
@@ -364,7 +365,7 @@ export default function LedgerPage({ params }: { params: Promise<{ id: string }>
   }
 
   function openCreate() {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localDate();
     setDraft({
       description: "",
       payer_id: myMembership?.member_id ?? "",
@@ -896,7 +897,7 @@ export default function LedgerPage({ params }: { params: Promise<{ id: string }>
         ledgerId={id}
         members={members}
         draft={draft}
-        defaultDate={ym === currentYm() ? new Date().toISOString().slice(0, 10) : `${ym}-01`}
+        defaultDate={ym === currentYm() ? localDate() : `${ym}-01`}
         onClose={() => setDraft(null)}
         onSaved={handleSaved}
         onInvite={() => { setDraft(null); invite(); }}

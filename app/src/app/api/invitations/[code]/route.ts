@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { ApiError, handle } from "@/lib/errors";
+import { localYm } from "@/lib/date";
 
 // FR-3 / SF-3: preview invitation (landing page, no auth)
 // Extended for P-4: inviter name + member initials + current period
@@ -25,7 +26,7 @@ export const GET = handle(async (_req: NextRequest, ctx: { params: Promise<{ cod
     .all();
   const inviter = members.find((m) => m.membership.id === inv.createdBy);
 
-  const ym = new Date().toISOString().slice(0, 7);
+  const ym = localYm();
   const period = db
     .select()
     .from(schema.billingPeriods)

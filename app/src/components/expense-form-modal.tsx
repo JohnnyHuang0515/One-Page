@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { X, Trash, Info, UsersThree, ArrowsClockwise, UserPlus } from "@phosphor-icons/react";
 import { api, ApiClientError, fmtMoney } from "@/lib/client";
+import { localDate } from "@/lib/date";
 import { useToast } from "./toast";
 import { useEscapeKey } from "@/lib/use-escape";
 import { useDialog } from "@/lib/use-dialog";
@@ -72,6 +73,7 @@ export function ExpenseFormModal({
     };
   }, [draft, members, defaultDate]);
 
+  const today = localDate(); // 花費是已發生的事，日期上限為今天（與後端 parseExpenseBody 一致）
   const amountNum = parseInt(amount, 10) || 0;
   const exactSum = useMemo(
     () => [...picked].reduce((s, id) => s + (parseInt(exact[id] ?? "", 10) || 0), 0),
@@ -208,6 +210,7 @@ export function ExpenseFormModal({
                 required
                 type="date"
                 value={spentAt}
+                max={today}
                 onChange={(e) => setSpentAt(e.target.value)}
                 className="rounded-[3px] border border-rule-strong px-3 py-2 outline-none focus:border-ink"
               />

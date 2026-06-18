@@ -5,6 +5,7 @@
 // 位置/墨色由前端隨機決定,這裡只供帳目內容。
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { db, schema } from "./db";
+import { localYm } from "./date";
 import type { ReplayData } from "@/components/ink/suminagashi-canvas";
 
 export function getHomeReplay(userId: string): ReplayData | null {
@@ -16,7 +17,7 @@ export function getHomeReplay(userId: string): ReplayData | null {
   if (!myMemberships.length) return null;
   const ledgerIds = myMemberships.map((m) => m.ledgerId);
 
-  const ym = new Date().toISOString().slice(0, 7); // 與其他 route 的 currentYearMonth 同一慣例
+  const ym = localYm(); // 本地時間當月（與其他 route 同一慣例）
   const rows = db
     .select({ expense: schema.expenses })
     .from(schema.expenses)
